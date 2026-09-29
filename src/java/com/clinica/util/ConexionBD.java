@@ -1,61 +1,57 @@
-
 package com.clinica.util;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-/**
- *
- * @author ASUS
- */
 public class ConexionBD {
 
-    // 1. Instancia estática privada (Patrón Singleton)
     private static ConexionBD instancia;
     private Connection conexion;
 
-    // Credenciales de PostgreSQL
-    private final String URL = "jdbc:postgresql://localhost:5432/clinica_db";
-    private final String USER = "postgres";
-    // REEMPLAZA "tu_contraseña" POR LA CLAVE QUE USAS EN PGADMIN4
-    private final String PASSWORD = "60247403.";
-
-    // 2. Constructor privado para evitar instanciación externa (Patrón Singleton)
     private ConexionBD() {
         try {
-            // Cargar el driver de PostgreSQL
             Class.forName("org.postgresql.Driver");
-            this.conexion = DriverManager.getConnection(URL, USER, PASSWORD);
-            System.out.println("Conexión exitosa a PostgreSQL.");
+
+            // Verificamos si Render nos está pasando la variable de entorno
+            String urlEnv = System.getenv("DB_URL");
+
+            if (urlEnv != null && !urlEnv.isEmpty()) {
+                // --- CONFIGURACIÓN PARA RENDER (NUBE) ---
+                String url = System.getenv("DB_URL");
+                String usuario = System.getenv("DB_USER");
+                String password = System.getenv("DB_PASSWORD");
+                conexion = DriverManager.getConnection(url, usuario, password);
+                System.out.println("Conexión exitosa a la BD de Render.");
+            } else {
+                // --- CONFIGURACIÓN LOCAL (TU PC / pgAdmin) ---
+                // Cambia 'clinica_db', 'postgres' y tu contraseña por los tuyos reales
+                String url = "jdbc:postgresql://localhost:5432/clinica_db";
+                String usuario = "postgres";
+                String password = "60247403.";
+                conexion = DriverManager.getConnection(url, usuario, password);
+                System.out.println("Conexión exitosa a la BD local.");
+            }
         } catch (ClassNotFoundException | SQLException e) {
-            System.err.println("Error en la conexión a BD: " + e.getMessage());
+            System.err.println("Error al conectar a la Base de Datos: " + e.getMessage());
         }
     }
 
-    // 3. Método estático público para obtener la única instancia (Patrón Singleton)
-    public static ConexionBD getInstancia() {
+    public static synchronized ConexionBD getInstancia() {
         if (instancia == null) {
             instancia = new ConexionBD();
+        }
+        try {
+            if (instancia.conexion == null || instancia.conexion.isClosed()) {
+                instancia = new ConexionBD();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return instancia;
     }
 
-    // Método para exponer el objeto Connection al DAO
     public Connection getConexion() {
         return conexion;
     }
-
-    // Método para cerrar la conexión
-    public void cerrarConexion() {
-        try {
-            if (conexion != null && !conexion.isClosed()) {
-                conexion.close();
-                instancia = null; // Resetear el singleton al cerrar
-            }
-        } catch (SQLException e) {
-            System.err.println("Error al cerrar conexión: " + e.getMessage());
-        }
-    }
-
 }
