@@ -1,0 +1,158 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Fondo corporativo moderno con degradado azul oscuro elegante */
+    background: linear-gradient(135deg, #0a192f 0%, #1e3a8a 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.main-wrapper {
+    display: flex;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    width: 880px;
+    max-width: 95%;
+}
+
+.image-panel {
+    flex: 1;
+    background: linear-gradient(135deg, #002244, #004080);
+    color: white;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.image-panel img {
+    width: 100%;
+    max-width: 260px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+    object-fit: cover;
+    height: 180px;
+}
+
+.image-panel h3 {
+    margin: 10px 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.image-panel p {
+    font-size: 13px;
+    opacity: 0.85;
+    line-height: 1.6;
+}
+
+.form-panel {
+    flex: 1;
+    padding: 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+h2 {
+    color: #002244;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 12px;
+    color: #444;
+}
+
+input {
+    width: 100%;
+    padding: 9px 12px;
+    margin-top: 4px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 13px;
+    background-color: #f8fafc;
+}
+
+input:focus {
+    border-color: #003366;
+    background-color: #fff;
+    outline: none;
+    box-shadow: 0 0 4px rgba(0, 51, 102, 0.25);
+}
+
+button {
+    width: 100%;
+    background-color: #003366;
+    color: white;
+    padding: 11px;
+    border: none;
+    border-radius: 6px;
+    margin-top: 18px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: #001f3f;
+}
+
+.alert-error {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    padding: 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    text-align: center;
+    border: 1px solid #fecaca;
+}
+
+.alert-success {
+    background-color: #dcfce7;
+    color: #15803d;
+    padding: 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    text-align: center;
+    border: 1px solid #bbf7d0;
+}
+
+small {
+    font-size: 11px;
+    display: block;
+    margin-top: 2px;
+}
+
+p.redirect-text {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+a {
+    color: #003366;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+a:hover {
+    text-decoration: underline;
+}
