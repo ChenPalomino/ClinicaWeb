@@ -13,23 +13,20 @@ public class ConexionBD {
         try {
             Class.forName("org.postgresql.Driver");
 
-            // Verificamos si Render nos está pasando la variable de entorno
-            String urlEnv = System.getenv("DB_URL");
+            // Leer las variables de entorno configuradas en Render
+            String url = System.getenv("DB_URL");
+            String usuario = System.getenv("DB_USER");
+            String password = System.getenv("DB_PASSWORD");
 
-            if (urlEnv != null && !urlEnv.isEmpty()) {
-                // --- CONFIGURACIÓN PARA RENDER (NUBE) ---
-                // Pasamos los NOMBRES de las variables de entorno, no los valores
-                String url = System.getenv("DB_URL");
-                String usuario = System.getenv("DB_USER");
-                String password = System.getenv("DB_PASSWORD");
-                
+            if (url != null && !url.isEmpty()) {
+                // --- CONEXIÓN A LA NUBE (Supabase / Render) ---
                 conexion = DriverManager.getConnection(url, usuario, password);
-                System.out.println("Conexión exitosa a la BD de Render.");
+                System.out.println("Conexión exitosa a la Base de Datos en la nube.");
             } else {
-                // --- CONFIGURACIÓN LOCAL (TU PC / pgAdmin) ---
-                String url = "jdbc:postgresql://localhost:5432/clinica_db";
-                String usuario = "postgres";
-                String password = "60247403.";
+                // --- CONEXIÓN LOCAL (Tu PC) ---
+                url = "jdbc:postgresql://localhost:5432/clinica_db";
+                usuario = "postgres";
+                password = "60247403.";
                 conexion = DriverManager.getConnection(url, usuario, password);
                 System.out.println("Conexión exitosa a la BD local.");
             }
