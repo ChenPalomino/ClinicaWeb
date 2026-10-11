@@ -7,5 +7,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%
     // Redirige automáticamente al login al iniciar la aplicación web
-    response.sendRedirect("login.jsp");
+    response.sendRedirect(request.getContextPath() + "/jsp/login.jsp");
 %>

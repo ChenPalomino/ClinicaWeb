@@ -1,0 +1,7 @@
+# NetBeans: configuración privada de cada PC
+nbproject/private/
+# Compilación temporal (dist/ SÍ se sube: el Dockerfile copia dist/*.war)
+build/
+# Sistema
+.DS_Store
+Thumbs.db

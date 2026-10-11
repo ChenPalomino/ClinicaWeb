@@ -1,12 +1,34 @@
+/* =========================================================
+   ClinicaWeb - estilos de acceso (login, registro, bloqueo)
+   ========================================================= */
+:root {
+    --azul-oscuro: #002244;
+    --azul: #003366;
+    --azul-hover: #001f3f;
+    --texto: #1e293b;
+    --texto-suave: #64748b;
+    --borde: #cbd5e1;
+    --fondo-input: #f8fafc;
+    --rojo: #b91c1c;
+    --rojo-fondo: #fee2e2;
+    --verde: #15803d;
+    --verde-fondo: #dcfce7;
+    --ambar: #92400e;
+    --ambar-fondo: #fef3c7;
+}
+
+* { box-sizing: border-box; }
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    /* Fondo corporativo moderno con degradado azul oscuro elegante */
     background: linear-gradient(135deg, #0a192f 0%, #1e3a8a 100%);
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
+    padding: 24px 12px;
+    color: var(--texto);
 }
 
 .main-wrapper {
@@ -15,8 +37,8 @@ body {
     border-radius: 14px;
     box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
     overflow: hidden;
-    width: 880px;
-    max-width: 95%;
+    width: 900px;
+    max-width: 100%;
 }
 
 .image-panel {
@@ -34,125 +56,223 @@ body {
 .image-panel img {
     width: 100%;
     max-width: 260px;
+    height: 180px;
     border-radius: 10px;
     margin-bottom: 20px;
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
     object-fit: cover;
-    height: 180px;
 }
 
-.image-panel h3 {
-    margin: 10px 0;
-    font-size: 20px;
-    font-weight: 600;
-}
-
-.image-panel p {
-    font-size: 13px;
-    opacity: 0.85;
-    line-height: 1.6;
-}
+.image-panel h3 { margin: 10px 0; font-size: 20px; font-weight: 600; }
+.image-panel p { font-size: 13px; opacity: 0.85; line-height: 1.6; margin: 0; }
 
 .form-panel {
-    flex: 1;
-    padding: 40px;
-    box-sizing: border-box;
+    flex: 1.1;
+    padding: 36px 40px;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
 
-h2 {
-    color: #002244;
-    margin-bottom: 20px;
-    font-size: 24px;
-}
+h2 { color: var(--azul-oscuro); margin: 0 0 6px; font-size: 24px; }
+.subtitulo { color: var(--texto-suave); font-size: 13px; margin: 0 0 18px; }
 
 label {
     display: block;
-    margin-top: 10px;
+    margin-top: 12px;
     font-weight: 600;
     font-size: 12px;
-    color: #444;
+    color: #334155;
 }
 
 input {
     width: 100%;
     padding: 9px 12px;
     margin-top: 4px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--borde);
     border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 13px;
-    background-color: #f8fafc;
+    font-size: 14px;
+    background-color: var(--fondo-input);
+    color: var(--texto);
 }
 
 input:focus {
-    border-color: #003366;
+    border-color: var(--azul);
     background-color: #fff;
     outline: none;
-    box-shadow: 0 0 4px rgba(0, 51, 102, 0.25);
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.15);
 }
 
-button {
+input.invalido { border-color: var(--rojo); background-color: #fff7f7; }
+input.valido { border-color: var(--verde); }
+
+.fila { display: flex; gap: 12px; }
+.fila > div { flex: 1; min-width: 0; }
+
+.ayuda { font-size: 11px; color: var(--texto-suave); display: block; margin-top: 3px; }
+.error-campo { font-size: 11px; color: var(--rojo); display: block; margin-top: 3px; min-height: 0; }
+
+/* Contraseña con botón mostrar/ocultar */
+.password-wrapper { position: relative; }
+.password-wrapper input { padding-right: 70px; }
+.toggle-password {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-top: 2px;
+    width: auto;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    background: transparent;
+    color: var(--azul);
+    border: none;
+    cursor: pointer;
+}
+.toggle-password:hover { background: #e2e8f0; border-radius: 4px; }
+
+/* Lista de requisitos de contraseña */
+.requisitos {
+    list-style: none;
+    padding: 8px 10px;
+    margin: 6px 0 0;
+    background: var(--fondo-input);
+    border-radius: 6px;
+    font-size: 11px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 10px;
+}
+.requisitos li { color: var(--texto-suave); }
+.requisitos li::before { content: "○ "; }
+.requisitos li.cumple { color: var(--verde); }
+.requisitos li.cumple::before { content: "✓ "; }
+
+button, .boton {
+    display: block;
     width: 100%;
-    background-color: #003366;
+    background-color: var(--azul);
     color: white;
     padding: 11px;
     border: none;
     border-radius: 6px;
-    margin-top: 18px;
+    margin-top: 20px;
     font-size: 15px;
     font-weight: bold;
     cursor: pointer;
+    text-align: center;
     transition: background 0.2s;
 }
+button:hover, .boton:hover { background-color: var(--azul-hover); text-decoration: none; }
+button:disabled { background-color: #94a3b8; cursor: wait; }
 
-button:hover {
-    background-color: #001f3f;
-}
-
-.alert-error {
-    background-color: #fee2e2;
-    color: #b91c1c;
-    padding: 9px;
+.alert-error, .alert-success, .alert-info {
+    padding: 10px 12px;
     border-radius: 6px;
-    font-size: 12px;
-    margin-bottom: 12px;
-    text-align: center;
-    border: 1px solid #fecaca;
-}
-
-.alert-success {
-    background-color: #dcfce7;
-    color: #15803d;
-    padding: 9px;
-    border-radius: 6px;
-    font-size: 12px;
-    margin-bottom: 12px;
-    text-align: center;
-    border: 1px solid #bbf7d0;
-}
-
-small {
-    font-size: 11px;
-    display: block;
-    margin-top: 2px;
-}
-
-p.redirect-text {
-    text-align: center;
-    margin-top: 15px;
     font-size: 13px;
-    color: #64748b;
+    margin-bottom: 12px;
+    border: 1px solid;
+}
+.alert-error { background: var(--rojo-fondo); color: var(--rojo); border-color: #fecaca; }
+.alert-success { background: var(--verde-fondo); color: var(--verde); border-color: #bbf7d0; }
+.alert-info { background: var(--ambar-fondo); color: var(--ambar); border-color: #fde68a; }
+
+.redirect-text { text-align: center; margin-top: 16px; font-size: 13px; color: var(--texto-suave); }
+
+a { color: var(--azul); text-decoration: none; font-weight: bold; }
+a:hover { text-decoration: underline; }
+
+/* Pantalla de cuenta bloqueada */
+.bloqueo-icono {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--rojo-fondo);
+    color: var(--rojo);
+    font-size: 30px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+}
+.bloqueo-tiempo { font-size: 22px; font-weight: 700; color: var(--azul-oscuro); margin: 8px 0 4px; }
+
+@media (max-width: 720px) {
+    .main-wrapper { flex-direction: column; }
+    .image-panel { padding: 24px; }
+    .image-panel img { display: none; }
+    .form-panel { padding: 24px 20px; }
+    .fila { flex-direction: column; gap: 0; }
+    .requisitos { grid-template-columns: 1fr; }
 }
 
-a {
-    color: #003366;
-    text-decoration: none;
-    font-weight: bold;
+/* =========================================================
+   Pestañas Paciente / Personal (login)
+   ========================================================= */
+.tabs-acceso {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: #eef2f7;
+    border-radius: 8px;
+    padding: 4px;
+    margin: 4px 0 6px;
+}
+.tab-acceso {
+    margin: 0;
+    padding: 9px 8px;
+    background: transparent;
+    color: var(--texto-suave);
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+}
+.tab-acceso:hover { background: #e2e8f0; color: var(--azul); }
+.tab-acceso[aria-selected="true"] {
+    background: #ffffff;
+    color: var(--azul-oscuro);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.tab-acceso:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+}
+.ayuda-tab { font-size: 12px; color: var(--texto-suave); margin: 6px 0 4px; min-height: 16px; }
+
+.fila-etiqueta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; }
+.fila-etiqueta label { margin-top: 0; }
+.enlace-secundario { font-size: 12px; font-weight: 600; }
+
+.aviso-mayus { font-size: 11px; color: var(--ambar); display: none; margin-top: 3px; }
+.aviso-mayus.visible { display: block; }
+
+/* =========================================================
+   Recuperación de contraseña: pasos
+   ========================================================= */
+.pasos { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 18px; }
+.pasos li {
+    flex: 1;
+    font-size: 11px;
+    color: var(--texto-suave);
+    padding-top: 8px;
+    border-top: 4px solid #e2e8f0;
+}
+.pasos li.actual { color: var(--azul-oscuro); font-weight: 700; border-top-color: var(--azul); }
+.pasos li.hecho { color: var(--verde); border-top-color: var(--verde); }
+
+.input-codigo {
+    font-size: 26px;
+    letter-spacing: 12px;
+    text-align: center;
+    font-weight: 700;
+    padding: 10px;
 }
 
-a:hover {
-    text-decoration: underline;
+.boton-secundario {
+    background: #ffffff;
+    color: var(--azul);
+    border: 1px solid var(--borde);
+    margin-top: 10px;
+    font-size: 14px;
 }
+.boton-secundario:hover { background: #f1f5f9; }
+.boton-secundario:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+
+.acciones-secundarias { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
