@@ -6,7 +6,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -26,10 +25,9 @@ import java.util.Set;
  * carpeta tiene su lista de roles permitidos. Aunque alguien escriba la URL a
  * mano, no podrá entrar a una sección que no le corresponde.
  *
- * Agregar una sección nueva = una línea en PERMISOS + su urlPattern.
+ * Agregar una sección nueva = una línea en PERMISOS + su url-pattern en WEB-INF/web.xml.
  */
-@WebFilter(filterName = "AutorizacionFilter",
-           urlPatterns = {"/admin/*", "/recepcion/*", "/medico/*", "/paciente/*"})
+// Rutas y orden de ejecución: WEB-INF/web.xml
 public class AutorizacionFilter implements Filter {
 
     /** Sección (primer tramo de la URL) -> roles que pueden entrar. El administrador supervisa al personal. */

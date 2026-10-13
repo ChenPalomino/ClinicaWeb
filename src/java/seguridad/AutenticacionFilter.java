@@ -5,7 +5,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -22,7 +21,7 @@ import java.util.Set;
  * También evita que, después de cerrar sesión, el botón "Atrás" del
  * navegador muestre el menú guardado en caché.
  */
-@WebFilter(filterName = "AutenticacionFilter", urlPatterns = {"/jsp/*", "/panel", "/perfil", "/foto"})
+// Rutas y orden de ejecución: WEB-INF/web.xml
 public class AutenticacionFilter implements Filter {
 
     private static final Set<String> PAGINAS_PUBLICAS = Set.of(
@@ -55,13 +54,26 @@ public class AutenticacionFilter implements Filter {
             return;
         }
 
-        if (!logueado) {
-            response.sendRedirect(request.getContextPath() + "/jsp/login.jsp?error=sesion");
+        // Fotos de perfil: basta con que alguna pestaña de este navegador tenga sesión
+        // (las etiquetas <img> no llevan el identificador de la pestaña)
+        if (ruta.equals("/foto")) {
+            if (logueado || SesionPorPestanaFilter.hayUsuarioEnAlgunaPestana(request)) {
+                chain.doFilter(req, res);
+            } else {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            }
             return;
         }
 
-        // ¿La cuenta sigue activa y la pestaña corresponde a la sesión? (no aplica a las fotos)
-        if (!ruta.equals("/foto") && !SesionVigente.revisar(request, response)) {
+        if (!logueado) {
+            // Pestaña nueva (sin identificador): login limpio. Pestaña que sí tenía sesión: "tu sesión terminó"
+            boolean pestanaNueva = SesionPorPestanaFilter.idPestana(request) == null;
+            response.sendRedirect(request.getContextPath() + "/jsp/login.jsp" + (pestanaNueva ? "" : "?error=sesion"));
+            return;
+        }
+
+        // ¿La cuenta sigue activa? (bloqueada, desactivada o con otro rol -> se cierra la sesión de la pestaña)
+        if (!SesionVigente.revisar(request, response)) {
             return;
         }
 

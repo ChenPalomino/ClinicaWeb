@@ -11,6 +11,7 @@ public class ObservadoresListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         EventoSubject.getInstancia().suscribir(new AuditoriaObserver());
-        System.out.println("ObservadoresListener: auditoría activada.");
+        EventoSubject.getInstancia().suscribir(new AccesoCambiadoObserver());
+        System.out.println("ObservadoresListener: auditoría y control de accesos activados.");
     }
 }

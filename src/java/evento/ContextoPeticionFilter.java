@@ -5,13 +5,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 
 /** Guarda la IP del cliente durante la petición (detrás de un proxy, la de X-Forwarded-For). */
-@WebFilter(filterName = "ContextoPeticionFilter", urlPatterns = {"/*"})
+// Rutas y orden de ejecución: WEB-INF/web.xml
 public class ContextoPeticionFilter implements Filter {
 
     @Override

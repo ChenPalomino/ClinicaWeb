@@ -3,54 +3,24 @@
  *  - Ventana de confirmación para acciones (desactivar, bloquear...).
  *  - Mostrar/ocultar contraseña y requisitos en vivo.
  *  - Descripción del rol elegido y solo-números en DNI/celular.
+ *  (js/pestana.js se carga antes: mantiene la cuenta propia de cada pestaña)
  */
 $(function () {
 
     // =====================================================================
-    //  UNA CUENTA POR NAVEGADOR: todas las pestañas comparten la misma sesión.
-    //  Si en otra pestaña se cierra sesión o se entra con otra cuenta, esta
-    //  pestaña lo detecta y no deja trabajar con datos de la cuenta anterior.
+    //  CUENTA DE LA PÁGINA: cada pestaña tiene su propia cuenta (js/pestana.js).
+    //  Cada formulario indica a qué cuenta pertenece la página, así una página
+    //  antigua (botón "Atrás" tras cambiar de cuenta en esta pestaña) no puede
+    //  hacer cambios con la cuenta nueva. El servidor lo comprueba (SesionVigente).
     // =====================================================================
     const miCuenta = document.body.dataset.usuario;
-    // Cada formulario de acción indica a qué cuenta pertenece esta pestaña (el servidor lo comprueba)
     document.querySelectorAll("form").forEach(function (form) {
         if ((form.getAttribute("method") || "").toUpperCase() !== "POST" || form.elements._cuenta) return;
         const oculto = document.createElement("input");
         oculto.type = "hidden"; oculto.name = "_cuenta"; oculto.value = miCuenta;
         form.appendChild(oculto);
     });
-    function cuentaActiva() { try { return localStorage.getItem("clinica.sesion.activa"); } catch (e) { return null; } }
-    function avisoPestana(sinSesion) {
-        const anterior = document.getElementById("avisoPestana");
-        if (anterior) anterior.remove();      // se actualiza (ej. primero se cerró sesión y luego entró otra cuenta)
-        const aviso = document.createElement("div");
-        aviso.id = "avisoPestana";
-        aviso.className = "aviso-pestana";
-        aviso.setAttribute("role", "alertdialog");
-        aviso.setAttribute("aria-modal", "true");
-        aviso.innerHTML = '<div class="card shadow-lg"><div class="card-body text-center p-4">'
-            + '<i class="fas fa-user-lock fa-2x text-warning mb-3" aria-hidden="true"></i>'
-            + '<h5>Esta pestaña quedó desactualizada</h5>'
-            + '<p class="text-muted mb-3"></p>'
-            + '<a class="btn btn-primary"></a></div></div>';
-        aviso.querySelector("p").textContent = sinSesion
-            ? "Se cerró la sesión en otra pestaña de este navegador."
-            : "En otra pestaña de este navegador se inició sesión con otra cuenta. Un navegador mantiene una sola cuenta "
-              + "abierta a la vez: para usar dos cuentas al mismo tiempo, abre la otra en una ventana privada o en otro navegador.";
-        const boton = aviso.querySelector("a");
-        boton.textContent = sinSesion ? "Iniciar sesión" : "Ir a la cuenta abierta";
-        boton.href = cuerpoCtx() + (sinSesion ? "/jsp/login.jsp" : "/panel");
-        document.body.appendChild(aviso);
-        boton.focus();
-    }
-    function cuerpoCtx() { return document.body.dataset.ctx || ""; }
-    function revisarPestana() {
-        const activa = cuentaActiva();
-        if (activa !== null && activa !== miCuenta) avisoPestana(activa === "0");
-    }
-    window.addEventListener("storage", function (e) { if (e.key === "clinica.sesion.activa") revisarPestana(); });
-    window.addEventListener("focus", revisarPestana);
-    document.addEventListener("visibilitychange", function () { if (!document.hidden) revisarPestana(); });
+    function enPestana(u) { return window.ClinicaPestana ? window.ClinicaPestana.url(u) : u; }
 
     // ---------- Tooltips ----------
     $('[data-toggle="tooltip"]').tooltip();
@@ -245,9 +215,9 @@ $(function () {
                 headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "fetch" },
                 body: "accion=tema&tema=" + encodeURIComponent(tema) + "&_cuenta=" + encodeURIComponent(miCuenta)
             }).then(function (r) {
-                if (r.status === 409) revisarPestana();                                  // pestaña de otra cuenta
+                if (r.status === 409) window.location.reload();                          // la página era de otra cuenta
                 if (r.status === 401) {
-                    window.location.href = cuerpo.dataset.ctx + "/jsp/login.jsp?error=" + (r.headers.get("X-Motivo") || "sesion");
+                    window.location.href = enPestana(cuerpo.dataset.ctx + "/jsp/login.jsp?error=" + (r.headers.get("X-Motivo") || "sesion"));
                 }
             }).catch(function () { /* sin conexión: se mantiene solo en esta página */ });
         }

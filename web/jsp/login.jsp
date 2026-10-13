@@ -16,6 +16,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Iniciar sesión - Clínica Modelo San Martín</title>
+    <script src="${pageContext.request.contextPath}/js/pestana.js?v=<%= configuracion.VersionAplicacion.RECURSOS %>"></script>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/estilos.css?v=<%= configuracion.VersionAplicacion.RECURSOS %>">
 </head>
 <body>
@@ -76,6 +77,8 @@
             <div class="alert-info">Tus permisos cambiaron. Vuelve a iniciar sesión para ver tu nuevo menú.</div>
         <% } else if ("enlace".equals(error)) { %>
             <div class="alert-error">El enlace no es válido o ya venció. Si necesitas ayuda, acércate a recepción.</div>
+        <% } else if ("pestana".equals(error)) { %>
+            <div class="alert-error">No pudimos identificar esta pestaña. Recarga la página (y verifica que JavaScript esté activado) e inténtalo de nuevo.</div>
         <% } else if ("sistema".equals(error)) { %>
             <div class="alert-error">No pudimos conectar con el sistema. Inténtalo de nuevo en unos minutos.</div>
         <% } %>
@@ -113,7 +116,7 @@
         </p>
     </div>
 </div>
-<script>try { localStorage.setItem("clinica.sesion.activa", "<%= session.getAttribute("usuarioLogueado") == null ? "0" : ((modelo.entidades.Usuario) session.getAttribute("usuarioLogueado")).getIdUsuario() %>"); } catch (e) {}</script>
+<script>try { localStorage.removeItem("clinica.sesion.activa"); } catch (e) {}</script>
 <script src="${pageContext.request.contextPath}/js/Validaciones.js?v=<%= configuracion.VersionAplicacion.RECURSOS %>"></script>
 </body>
 </html>

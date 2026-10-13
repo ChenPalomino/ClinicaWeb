@@ -1,6 +1,7 @@
 package seguridad;
 
 import controlador.MensajeFlash;
+import evento.AccesoCambiadoObserver;
 import evento.EventoSistema;
 import evento.EventoSubject;
 import evento.TipoEvento;
@@ -21,17 +22,21 @@ import java.util.Optional;
  *
  * 1. CUENTA: si el administrador bloqueó, desactivó o cambió el rol del usuario
  *    mientras estaba conectado, su sesión se cierra en la siguiente acción.
- * 2. PESTAÑA: un navegador tiene UNA sola sesión (una cookie) para todas sus
- *    pestañas. Si en otra pestaña se inició sesión con otra cuenta, una pestaña
- *    vieja seguiría mostrando la cuenta anterior. Cada formulario envía
- *    "_cuenta" (la cuenta que la pestaña muestra); si no coincide con la sesión
- *    actual, la acción NO se ejecuta y se avisa.
+ * 2. PÁGINA ANTIGUA: cada pestaña tiene su propia cuenta (SesionPorPestanaFilter),
+ *    pero si en la MISMA pestaña se cerró sesión y se entró con otra cuenta, el
+ *    botón "Atrás" podría mostrar un formulario de la cuenta anterior. Cada
+ *    formulario envía "_cuenta" (la cuenta que la página muestra); si no
+ *    coincide, la acción NO se ejecuta y se avisa.
  */
 public final class SesionVigente {
 
     public static final String PARAMETRO_CUENTA = "_cuenta";
     private static final String ULTIMA_REVISION = "sesion.ultimaRevision";
-    private static final long INTERVALO_MS = 5_000;   // las consultas (GET) se revisan cada 5 s; las acciones (POST) siempre
+    private static final String VERSION_ACCESOS = "sesion.versionAccesos";
+    // Las consultas (GET) se revisan cada 30 s (menos viajes a la BD = sistema más rápido),
+    // o de inmediato si alguien cambió el acceso de una cuenta (AccesoCambiadoObserver).
+    // Las acciones (POST) se revisan SIEMPRE, así un usuario bloqueado no puede cambiar nada.
+    private static final long INTERVALO_MS = 30_000;
 
     private SesionVigente() {
     }
@@ -62,9 +67,8 @@ public final class SesionVigente {
             response.sendError(HttpServletResponse.SC_CONFLICT);   // fetch(): el navegador recarga la pestaña
             return false;
         }
-        MensajeFlash.aviso(session, "No se hizo ningún cambio: esa pestaña mostraba otra cuenta. En este navegador "
-                + "ahora está abierta la sesión de @" + usuario.getNombreUsuario()
-                + ". Para usar dos cuentas a la vez, abre la otra en una ventana privada o en otro navegador.");
+        MensajeFlash.aviso(session, "No se hizo ningún cambio: esa página era de otra cuenta. En esta pestaña "
+                + "ahora está abierta la sesión de @" + usuario.getNombreUsuario() + ".");
         response.sendRedirect(request.getContextPath() + "/panel");
         return false;
     }
@@ -72,8 +76,11 @@ public final class SesionVigente {
     private static boolean cuentaVigente(HttpServletRequest request, HttpServletResponse response, HttpSession session,
                                          Usuario usuario, boolean esAccion) throws IOException {
         Long ultima = (Long) session.getAttribute(ULTIMA_REVISION);
+        Long versionVista = (Long) session.getAttribute(VERSION_ACCESOS);
+        long version = AccesoCambiadoObserver.version();
         long ahora = System.currentTimeMillis();
-        if (!esAccion && ultima != null && ahora - ultima < INTERVALO_MS) {
+        boolean sinCambios = versionVista != null && versionVista == version;   // nadie bloqueó/desactivó cuentas
+        if (!esAccion && sinCambios && ultima != null && ahora - ultima < INTERVALO_MS) {
             return true;
         }
         String motivo;
@@ -85,6 +92,7 @@ public final class SesionVigente {
         }
         if (motivo == null) {
             session.setAttribute(ULTIMA_REVISION, ahora);
+            session.setAttribute(VERSION_ACCESOS, version);
             return true;
         }
         EventoSubject.getInstancia().publicar(new EventoSistema(TipoEvento.SESION_EXPULSADA, usuario.getIdUsuario(),

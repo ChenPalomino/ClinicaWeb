@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ClinicaWeb - descriptor de despliegue.
+    Los servlets se declaran con @WebServlet en cada controlador.
+    Aquí solo se fija el ORDEN de los filtros (patrón Intercepting Filter),
+    porque con anotaciones el orden no está garantizado:
+      1. ContextoPeticionFilter   -> IP del cliente para la auditoría
+      2. SesionPorPestanaFilter   -> cada pestaña con su propia cuenta
+      3. AutenticacionFilter      -> ¿inició sesión?
+      4. AutorizacionFilter       -> ¿su rol puede entrar a esa sección?
+-->
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0" metadata-complete="false">
+
+    <display-name>ClinicaWeb</display-name>
+
+    <filter>
+        <filter-name>ContextoPeticionFilter</filter-name>
+        <filter-class>evento.ContextoPeticionFilter</filter-class>
+    </filter>
+    <filter>
+        <filter-name>SesionPorPestanaFilter</filter-name>
+        <filter-class>seguridad.SesionPorPestanaFilter</filter-class>
+    </filter>
+    <filter>
+        <filter-name>AutenticacionFilter</filter-name>
+        <filter-class>seguridad.AutenticacionFilter</filter-class>
+    </filter>
+    <filter>
+        <filter-name>AutorizacionFilter</filter-name>
+        <filter-class>seguridad.AutorizacionFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>ContextoPeticionFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>SesionPorPestanaFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>AutenticacionFilter</filter-name>
+        <url-pattern>/jsp/*</url-pattern>
+        <url-pattern>/panel</url-pattern>
+        <url-pattern>/perfil</url-pattern>
+        <url-pattern>/foto</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>AutorizacionFilter</filter-name>
+        <url-pattern>/admin/*</url-pattern>
+        <url-pattern>/recepcion/*</url-pattern>
+        <url-pattern>/medico/*</url-pattern>
+        <url-pattern>/paciente/*</url-pattern>
+    </filter-mapping>
+
+    <session-config>
+        <session-timeout>30</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+        </cookie-config>
+        <tracking-mode>COOKIE</tracking-mode>
+    </session-config>
+
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+</web-app>

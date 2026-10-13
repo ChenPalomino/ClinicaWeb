@@ -36,6 +36,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title><%= EscapeHtml.texto(tituloPagina) %> - Clínica Modelo San Martín</title>
+    <%-- Primero: cada pestaña mantiene su propia cuenta --%>
+    <script src="<%= ctx %>/js/pestana.js?v=<%= VersionAplicacion.RECURSOS %>"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,600,700&display=fallback">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2.0/dist/css/adminlte.min.css">
@@ -54,7 +56,7 @@
             b.classList.add("dark-mode");
         }
         try {
-            localStorage.setItem("clinica.sesion.activa", b.dataset.usuario); // cuenta abierta en este navegador
+            localStorage.removeItem("clinica.sesion.activa");   // versión anterior: "una cuenta por navegador"
             localStorage.removeItem("clinica.tema");            // versión anterior: el tema se guardaba en el NAVEGADOR (compartido entre cuentas)
             var estado = localStorage.getItem("clinica.menu." + b.dataset.usuario) || "sidebar-open";
             localStorage.setItem("remember.lte.pushmenu", estado); // AdminLTE lee esta clave al iniciar
