@@ -1,0 +1,24 @@
+<%@ page pageEncoding="UTF-8" %>
+<%--
+    Fragmento COMÚN: tarjeta de bienvenida (saludo según la hora de Lima + avatar).
+    Lo incluyen los inicios de todos los roles; se usa con <%@ include %> después de cabecera.jspf.
+--%>
+<%
+    int horaLima = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Lima")).getHour();
+    String saludo = horaLima < 12 ? "Buenos días" : (horaLima < 19 ? "Buenas tardes" : "Buenas noches");
+%>
+<div class="bienvenida card animar">
+    <div class="card-body d-flex align-items-center flex-wrap">
+        <%= avatar(ctx, usuarioSesion.getIdUsuario(), perfilSesion.isTieneFoto(), perfilSesion.getFotoVersion(), perfilSesion.getIniciales(), "avatar-xl mr-3") %>
+        <div class="mr-auto">
+            <h4 class="mb-1"><%= saludo %>, <%= EscapeHtml.texto(perfilSesion.getNombreMostrar()) %></h4>
+            <p class="mb-0 text-muted">Estás en: <strong><%= EscapeHtml.texto(menuStrategy.getNombrePanel()) %></strong>.
+                Usa el menú de la izquierda para moverte entre los módulos.</p>
+        </div>
+        <% if (!perfilSesion.isTieneDatosPersonales() || !perfilSesion.isTieneFoto()) { %>
+        <a href="<%= ctx %>/perfil" class="btn btn-outline-primary btn-sm mt-2 mt-md-0">
+            <i class="fas fa-user-edit mr-1"></i><%= perfilSesion.isTieneDatosPersonales() ? "Agrega tu foto de perfil" : "Completa tu perfil" %>
+        </a>
+        <% } %>
+    </div>
+</div>

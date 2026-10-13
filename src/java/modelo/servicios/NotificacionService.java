@@ -64,6 +64,21 @@ public class NotificacionService {
         enviarEnSegundoPlano(contacto, "Tu cuenta fue bloqueada temporalmente", plantilla("Cuenta bloqueada", cuerpo));
     }
 
+    /** Aviso al correo ANTERIOR cuando el usuario cambia su correo en "Mi perfil". */
+    public void avisarCambioCorreo(ContactoDTO anterior, String correoNuevo) {
+        String cuerpo = "<p>Hola " + EscapeHtml.texto(anterior.getNombres()) + ",</p>"
+                + "<p>El correo de tu cuenta se cambió el <strong>" + ahora() + "</strong> a:</p>"
+                + "<p style=\"font-size:16px;\"><strong>" + EscapeHtml.texto(ocultar(correoNuevo)) + "</strong></p>"
+                + "<p>Desde ahora los códigos de recuperación llegarán a esa dirección.</p>"
+                + "<p style=\"color:#b91c1c;\"><strong>¿No fuiste tú?</strong> Acércate a recepción con tu DNI "
+                + "o comunícate con el administrador lo antes posible.</p>";
+        enviarEnSegundoPlano(anterior, "Se cambió el correo de tu cuenta", plantilla("Correo actualizado", cuerpo));
+    }
+
+    private static String ocultar(String correo) {
+        return new ContactoDTO("", correo).getCorreoOculto();
+    }
+
     // ------------------------------------------------------------------
 
     private void enviarEnSegundoPlano(ContactoDTO contacto, String asunto, String html) {

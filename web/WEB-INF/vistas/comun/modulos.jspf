@@ -1,0 +1,28 @@
+<%@ page pageEncoding="UTF-8" %>
+<%--
+    Fragmento COMÚN: "Tus módulos". Se arma con las opciones de la estrategia del rol,
+    así cada rol ve solo lo suyo y los módulos futuros aparecen como "Próximamente".
+--%>
+<div class="card animar">
+    <div class="card-header"><h3 class="card-title"><i class="fas fa-th-large mr-2"></i>Tus módulos</h3></div>
+    <div class="card-body">
+        <div class="row">
+        <% for (OpcionMenu op : menuStrategy.getOpciones()) {
+               if ("inicio".equals(op.getClave())) continue; %>
+            <div class="col-sm-6 col-lg-4 mb-3">
+                <% if (op.isDisponible()) { %>
+                <a href="<%= ctx + op.getUrl() %>" class="modulo modulo-disponible">
+                    <i class="<%= op.getIcono() %>"></i>
+                    <span><strong><%= EscapeHtml.texto(op.getTitulo()) %></strong><small>Disponible</small></span>
+                </a>
+                <% } else { %>
+                <div class="modulo modulo-proximo" title="Se construirá en las siguientes etapas">
+                    <i class="<%= op.getIcono() %>"></i>
+                    <span><strong><%= EscapeHtml.texto(op.getTitulo()) %></strong><small>Próximamente</small></span>
+                </div>
+                <% } %>
+            </div>
+        <% } %>
+        </div>
+    </div>
+</div>

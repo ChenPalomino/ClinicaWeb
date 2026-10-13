@@ -145,18 +145,27 @@ public class RecuperacionService {
 
         usuarioRepository.cambiarContrasenaYDesbloquear(idUsuario, EncriptadorPassword.encriptar(nueva));
 
-        // Enlace "No fui yo": token aleatorio largo, se guarda solo su hash
-        ContactoDTO contacto = usuarioRepository.buscarContacto(idUsuario);
-        if (contacto != null) {
-            byte[] bytes = new byte[24];
-            RANDOM.nextBytes(bytes);
-            String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-            usuarioRepository.guardarToken(idUsuario, EncriptadorPassword.encriptar(token),
-                    TokenRecuperacionDTO.TIPO_ALERTA, MINUTOS_ENLACE_REPORTE);
-            String enlace = urlBase + "/RecuperacionController?accion=reportar&u=" + idUsuario + "&t=" + token;
-            notificacionService.avisarCambioContrasena(contacto, enlace);
-        }
+        notificarCambioContrasena(idUsuario, urlBase);
         return errores;
+    }
+
+    /**
+     * Envía el aviso "Tu contraseña fue cambiada" con el enlace "No fui yo".
+     * Lo usan la recuperación por código y el cambio desde "Mi perfil".
+     */
+    public void notificarCambioContrasena(int idUsuario, String urlBase) {
+        ContactoDTO contacto = usuarioRepository.buscarContacto(idUsuario);
+        if (contacto == null) {
+            return;
+        }
+        // Token aleatorio largo; en la BD se guarda solo su hash
+        byte[] bytes = new byte[24];
+        RANDOM.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        usuarioRepository.guardarToken(idUsuario, EncriptadorPassword.encriptar(token),
+                TokenRecuperacionDTO.TIPO_ALERTA, MINUTOS_ENLACE_REPORTE);
+        String enlace = urlBase + "/RecuperacionController?accion=reportar&u=" + idUsuario + "&t=" + token;
+        notificacionService.avisarCambioContrasena(contacto, enlace);
     }
 
     // ------------------------------------------------------- "No fui yo"

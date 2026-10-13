@@ -3,13 +3,13 @@ package notificacion;
 /**
  * PATRÓN: Factory (creacional)
  *
- * Decide QUÉ adaptador de correo usar según la configuración, para que ninguna
- * otra clase tenga que saberlo: - Si existen BREVO_API_KEY y CORREO_REMITENTE
- * -> BrevoCorreoAdapter (correos reales) - Si falta alguna ->
- * ConsolaCorreoAdapter (modo desarrollo)
+ * Decide QUÉ adaptador de correo usar según la configuración, para que
+ * ninguna otra clase tenga que saberlo:
+ *   - Si existen BREVO_API_KEY y CORREO_REMITENTE -> BrevoCorreoAdapter (correos reales)
+ *   - Si falta alguna                             -> ConsolaCorreoAdapter (modo desarrollo)
  *
- * Escribe en la consola (Output) qué modo eligió y, si es el de desarrollo, qué
- * variable falta, para diagnosticar fácilmente.
+ * Escribe en la consola (Output) qué modo eligió y, si es el de desarrollo,
+ * qué variable falta, para diagnosticar fácilmente.
  */
 public final class ServicioCorreoFactory {
 
@@ -33,9 +33,7 @@ public final class ServicioCorreoFactory {
         return new ConsolaCorreoAdapter();
     }
 
-    /**
-     * Quita espacios y comillas que a veces se cuelan al copiar y pegar.
-     */
+    /** Quita espacios y comillas que a veces se cuelan al copiar y pegar. */
     private static String limpiar(String valor) {
         if (valor == null) {
             return null;

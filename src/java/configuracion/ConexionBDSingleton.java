@@ -46,35 +46,40 @@ public class ConexionBDSingleton {
         return instancia;
     }
 
-    private void conectar() {
+    /** Crea una conexión física nueva leyendo las variables de entorno. */
+    private Connection crearConexion() throws SQLException {
         try {
             Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("No se encontró el driver de PostgreSQL", e);
+        }
+        String url = System.getenv("DB_URL");
+        String usuario = System.getenv("DB_USER");
+        String password = System.getenv("DB_PASSWORD");
 
+        if (url == null || url.isBlank()) {
+            url = URL_LOCAL;
+            usuario = (usuario == null || usuario.isBlank()) ? USUARIO_LOCAL : usuario;
+        }
+        if (password == null) {
+            System.err.println("ConexionBDSingleton: falta la variable de entorno DB_PASSWORD.");
+        }
+        return DriverManager.getConnection(url, usuario, password);
+    }
+
+    private void conectar() {
+        try {
+            conexion = crearConexion();
             String url = System.getenv("DB_URL");
-            String usuario = System.getenv("DB_USER");
-            String password = System.getenv("DB_PASSWORD");
-
-            if (url == null || url.isBlank()) {
-                url = URL_LOCAL;
-                usuario = (usuario == null || usuario.isBlank()) ? USUARIO_LOCAL : usuario;
-                System.out.println("ConexionBDSingleton: usando BD local.");
-            } else {
-                System.out.println("ConexionBDSingleton: usando BD en la nube.");
-            }
-
-            if (password == null) {
-                System.err.println("ConexionBDSingleton: falta la variable de entorno DB_PASSWORD.");
-            }
-
-            conexion = DriverManager.getConnection(url, usuario, password);
-        } catch (ClassNotFoundException | SQLException e) {
+            System.out.println("ConexionBDSingleton: usando BD " + (url == null || url.isBlank() ? "local." : "en la nube."));
+        } catch (SQLException e) {
             conexion = null;
             System.err.println("ConexionBDSingleton: error al conectar -> " + e.getMessage());
         }
     }
 
-    // 4. Obtiene la conexión; si está cerrada o 'muerta' (Supabase corta las
-    //    conexiones inactivas) la vuelve a abrir. Sigue siendo la misma instancia.
+    // 4. Obtiene la conexión compartida; si está cerrada o 'muerta' (Supabase
+    //    corta las conexiones inactivas) la vuelve a abrir. Sigue siendo la misma instancia.
     public synchronized Connection getConexion() throws SQLException {
         if (conexion == null || conexion.isClosed() || !conexion.isValid(3)) {
             conectar();
@@ -83,5 +88,17 @@ public class ConexionBDSingleton {
             throw new SQLException("No se pudo establecer conexión con la base de datos.");
         }
         return conexion;
+    }
+
+    /**
+     * 5. Conexión NUEVA y exclusiva para operaciones de varios pasos que deben
+     *    ser atómicas (transacciones: o se guarda todo o nada). Viene con
+     *    autoCommit desactivado. Quien la pide debe hacer commit/rollback y
+     *    CERRARLA (try-with-resources). La conexión compartida no se toca.
+     */
+    public Connection abrirConexionTransaccional() throws SQLException {
+        Connection nueva = crearConexion();
+        nueva.setAutoCommit(false);
+        return nueva;
     }
 }

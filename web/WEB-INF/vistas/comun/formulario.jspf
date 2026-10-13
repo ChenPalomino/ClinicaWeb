@@ -1,0 +1,25 @@
+<%@ page pageEncoding="UTF-8" %>
+<%--
+    Fragmento COMÚN de los formularios CRUD: marca el campo con error y muestra su mensaje
+    (Nielsen: ayudar a reconocer y corregir errores, junto al campo que falló).
+--%>
+<%!
+    private String invalido(java.util.Map<String, String> e, String campo) { return e.containsKey(campo) ? "is-invalid" : ""; }
+    private String error(java.util.Map<String, String> e, String campo) {
+        return e.containsKey(campo) ? "<div class=\"invalid-feedback d-block\">" + seguridad.EscapeHtml.texto(e.get(campo)) + "</div>" : "";
+    }
+    private String sel(boolean condicion) { return condicion ? "selected" : ""; }
+    private String marcado(boolean condicion) { return condicion ? "checked" : ""; }
+%>
+<%
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, String> errores = (java.util.Map<String, String>) request.getAttribute("errores");
+    if (errores == null) errores = java.util.Map.of();
+%>
+<% if (!errores.isEmpty()) { %>
+<div class="alert alert-danger" role="alert">
+    <i class="fas fa-exclamation-triangle mr-2"></i>
+    <% if (errores.containsKey("general")) { %><%= EscapeHtml.texto(errores.get("general")) %>
+    <% } else { %>No se guardó: revisa <%= errores.size() == 1 ? "el campo marcado" : "los " + errores.size() + " campos marcados" %> en rojo.<% } %>
+</div>
+<% } %>

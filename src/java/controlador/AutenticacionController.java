@@ -47,8 +47,10 @@ public class AutenticacionController extends HttpServlet {
             HttpSession session = request.getSession(true);
             session.setAttribute("usuarioLogueado", usuario);
             session.setMaxInactiveInterval(MINUTOS_SESION * 60);
+            // Nombre, foto y datos para mostrar en el dashboard (en vez del DNI)
+            PerfilController.cargarEnSesion(session, usuario.getIdUsuario());
 
-            response.sendRedirect(jsp + "menuPrincipal.jsp");
+            response.sendRedirect(request.getContextPath() + "/panel");
 
         } catch (AutenticacionException e) {
             switch (e.getMotivo()) {

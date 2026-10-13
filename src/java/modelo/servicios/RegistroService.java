@@ -54,7 +54,7 @@ public class RegistroService {
         if (usuarioRepository.existeDni(dto.getDni()) || usuarioRepository.existeNombreUsuario(dto.getDni())) {
             errores.put("dni", "Este DNI ya tiene una cuenta. Inicia sesión o recupera tu acceso.");
         }
-        if (usuarioRepository.existeCorreo(dto.getCorreo())) {
+        if (usuarioRepository.existeCorreo(dto.getCorreo(), dto.getDni())) {
             errores.put("correo", "Este correo ya está registrado.");
         }
         if (!errores.isEmpty()) {

@@ -1,0 +1,182 @@
+<%@ page pageEncoding="UTF-8" %>
+<%--
+    Plantilla del dashboard (parte superior): <head>, barra superior y menú lateral.
+    Basada en AdminLTE 3.2 (plantilla libre, licencia MIT) + Bootstrap 4.
+    El menú lo arma la estrategia del rol (MenuFactory -> MenuStrategy): aquí no hay ningún "if" por rol.
+--%>
+<%@ page import="modelo.entidades.Usuario, modelo.dto.PerfilDTO, menu.MenuFactory, menu.MenuStrategy, menu.OpcionMenu, controlador.MensajeFlash, controlador.PerfilController, seguridad.EscapeHtml, configuracion.VersionAplicacion" %>
+<%!
+    /** Avatar: la foto de perfil si existe; si no, un círculo con las iniciales. */
+    private String avatar(String ctx, int idUsuario, boolean tieneFoto, long version, String iniciales, String clases) {
+        if (tieneFoto) {
+            return "<img class=\"avatar-iniciales avatar-foto " + clases + "\" src=\"" + ctx + "/foto?u=" + idUsuario
+                    + "&amp;v=" + version + "\" alt=\"\" loading=\"lazy\">";
+        }
+        return "<span class=\"avatar-iniciales " + clases + "\" aria-hidden=\"true\">" + EscapeHtml.texto(iniciales) + "</span>";
+    }
+%>
+<%
+    Usuario usuarioSesion = (Usuario) session.getAttribute("usuarioLogueado");
+    PerfilDTO perfilSesion = (PerfilDTO) session.getAttribute(PerfilController.SESION_PERFIL);
+    if (perfilSesion == null) perfilSesion = PerfilController.cargarEnSesion(session, usuarioSesion.getIdUsuario());
+    if (perfilSesion == null) { perfilSesion = new PerfilDTO(); perfilSesion.setNombreUsuario(usuarioSesion.getNombreUsuario()); }
+
+    MenuStrategy menuStrategy = MenuFactory.crear(usuarioSesion.getRolId());
+    String menuActivo = (String) request.getAttribute("menuActivo");
+    String tituloPagina = (String) request.getAttribute("tituloPagina");
+    if (tituloPagina == null) tituloPagina = "Panel";
+    MensajeFlash flash = MensajeFlash.tomar(session);
+    String ctx = request.getContextPath();
+    String miAvatar = avatar(ctx, usuarioSesion.getIdUsuario(), perfilSesion.isTieneFoto(), perfilSesion.getFotoVersion(), perfilSesion.getIniciales(), "");
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title><%= EscapeHtml.texto(tituloPagina) %> - Clínica Modelo San Martín</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,600,700&display=fallback">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2.0/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="<%= ctx %>/css/panel.css?v=<%= VersionAplicacion.RECURSOS %>">
+</head>
+<%-- La apariencia es PERSONAL: se lee de la cuenta (tt_usuario.preferencia_tema), no del navegador --%>
+<body class="hold-transition sidebar-mini layout-fixed<%= "oscuro".equals(perfilSesion.getTema()) ? " dark-mode" : "" %>"
+      data-tema="<%= EscapeHtml.texto(perfilSesion.getTema()) %>" data-ctx="<%= ctx %>" data-usuario="<%= usuarioSesion.getIdUsuario() %>">
+<script>
+    /* Se ejecuta ANTES de dibujar la página para que no "parpadee":
+       1) tema "automático": sigue al dispositivo
+       2) menú lateral: cada usuario recuerda si lo dejó contraído (no se comparte entre cuentas) */
+    (function () {
+        var b = document.body;
+        if (b.dataset.tema === "sistema" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) {
+            b.classList.add("dark-mode");
+        }
+        try {
+            localStorage.removeItem("clinica.tema");            // versión anterior: el tema se guardaba en el NAVEGADOR (compartido entre cuentas)
+            var estado = localStorage.getItem("clinica.menu." + b.dataset.usuario) || "sidebar-open";
+            localStorage.setItem("remember.lte.pushmenu", estado); // AdminLTE lee esta clave al iniciar
+            if (window.innerWidth > 991 && estado === "sidebar-collapse") b.classList.add("sidebar-collapse");
+        } catch (e) {}
+    })();
+</script>
+<div class="wrapper">
+
+    <%-- ===================== BARRA SUPERIOR ===================== --%>
+    <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <%-- data-enable-remember: el menú recuerda si el usuario lo dejó contraído --%>
+                <a class="nav-link" data-widget="pushmenu" data-enable-remember="true" href="#" role="button" title="Contraer o expandir el menú">
+                    <i class="fas fa-bars"></i><span class="sr-only">Menú</span>
+                </a>
+            </li>
+            <li class="nav-item d-none d-sm-inline-block">
+                <span class="nav-link text-muted saludo-hora" id="fechaHoy"></span>
+            </li>
+        </ul>
+        <ul class="navbar-nav ml-auto align-items-center">
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="btnTema" role="button" title="Cambiar a modo oscuro" aria-label="Cambiar a modo oscuro">
+                    <i class="fas fa-moon"></i>
+                </a>
+            </li>
+            <li class="nav-item dropdown">
+                <a class="nav-link d-flex align-items-center usuario-nav" data-toggle="dropdown" href="#" aria-haspopup="true" aria-expanded="false">
+                    <%= miAvatar.replace("avatar-iniciales ", "avatar-iniciales avatar-sm mr-2 ") %>
+                    <span class="d-none d-md-inline font-weight-bold"><%= EscapeHtml.texto(perfilSesion.getNombreCorto()) %></span>
+                    <i class="fas fa-chevron-down ml-2 small"></i>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right dropdown-perfil">
+                    <div class="dropdown-item-text d-flex align-items-center">
+                        <%= miAvatar.replace("avatar-iniciales ", "avatar-iniciales avatar-lg mr-3 ") %>
+                        <div>
+                            <strong class="d-block"><%= EscapeHtml.texto(perfilSesion.getNombreCompleto()) %></strong>
+                            <small class="text-muted"><%= usuarioSesion.getNombreRol() %> · @<%= EscapeHtml.texto(usuarioSesion.getNombreUsuario()) %></small>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="<%= ctx %>/perfil" class="dropdown-item"><i class="fas fa-user-circle mr-2 text-muted"></i>Mi perfil</a>
+                    <a href="<%= ctx %>/perfil?tab=seguridad" class="dropdown-item"><i class="fas fa-key mr-2 text-muted"></i>Cambiar contraseña</a>
+                    <a href="<%= ctx %>/perfil?tab=apariencia" class="dropdown-item"><i class="fas fa-palette mr-2 text-muted"></i>Apariencia</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="<%= ctx %>/AutenticacionController?accion=salir" class="dropdown-item text-danger">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Cerrar sesión
+                    </a>
+                </div>
+            </li>
+        </ul>
+    </nav>
+
+    <%-- ===================== MENÚ LATERAL ===================== --%>
+    <aside class="main-sidebar sidebar-dark-primary elevation-4">
+        <a href="<%= ctx %>/panel" class="brand-link">
+            <span class="brand-image logo-cruz"><i class="fas fa-clinic-medical"></i></span>
+            <span class="brand-text font-weight-bold">Clínica San Martín</span>
+        </a>
+        <div class="sidebar">
+            <a href="<%= ctx %>/perfil" class="user-panel mt-3 pb-3 mb-2 d-flex align-items-center" title="Ver mi perfil">
+                <div class="image"><%= miAvatar %></div>
+                <div class="info">
+                    <span class="d-block text-white text-truncate"><%= EscapeHtml.texto(perfilSesion.getNombreCorto()) %></span>
+                    <small class="text-muted-claro"><%= EscapeHtml.texto(menuStrategy.getNombrePanel()) %></small>
+                </div>
+            </a>
+            <nav class="mt-2" aria-label="Menú principal">
+                <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                <%
+                    String seccionActual = "";
+                    for (OpcionMenu op : menuStrategy.getOpciones()) {
+                        if (!op.getSeccion().equals(seccionActual)) {
+                            seccionActual = op.getSeccion();
+                %>
+                    <li class="nav-header"><%= EscapeHtml.texto(seccionActual) %></li>
+                <%      }
+                        if (op.isDisponible()) {
+                            boolean activo = op.getClave() != null && op.getClave().equals(menuActivo);
+                %>
+                    <li class="nav-item">
+                        <a href="<%= ctx + op.getUrl() %>" class="nav-link <%= activo ? "active" : "" %>" <%= activo ? "aria-current=\"page\"" : "" %>>
+                            <i class="nav-icon <%= op.getIcono() %>"></i><p><%= EscapeHtml.texto(op.getTitulo()) %></p>
+                        </a>
+                    </li>
+                <%      } else { %>
+                    <li class="nav-item">
+                        <span class="nav-link opcion-proxima" title="Este módulo se construirá en las siguientes etapas">
+                            <i class="nav-icon <%= op.getIcono() %>"></i>
+                            <p><%= EscapeHtml.texto(op.getTitulo()) %> <span class="right badge badge-secondary">Pronto</span></p>
+                        </span>
+                    </li>
+                <%      }
+                    } %>
+                </ul>
+            </nav>
+        </div>
+    </aside>
+
+    <%-- ===================== CONTENIDO ===================== --%>
+    <div class="content-wrapper">
+        <div class="content-header">
+            <div class="container-fluid">
+                <div class="row mb-2 align-items-center">
+                    <div class="col-sm-6"><h1 class="m-0"><%= EscapeHtml.texto(tituloPagina) %></h1></div>
+                    <div class="col-sm-6">
+                        <ol class="breadcrumb float-sm-right">
+                            <li class="breadcrumb-item"><a href="<%= ctx %>/panel">Inicio</a></li>
+                            <% if (!"Inicio".equals(tituloPagina)) { %>
+                            <li class="breadcrumb-item active" aria-current="page"><%= EscapeHtml.texto(tituloPagina) %></li>
+                            <% } %>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <section class="content">
+            <div class="container-fluid">
+            <% if (flash != null) { %>
+                <div class="alert alert-<%= flash.getTipo() %> alert-dismissible fade show alerta-flash" role="alert" data-autocerrar="<%= "success".equals(flash.getTipo()) %>">
+                    <i class="<%= flash.getIcono() %> mr-2"></i><%= EscapeHtml.texto(flash.getTexto()) %>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+                </div>
+            <% } %>

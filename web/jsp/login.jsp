@@ -16,7 +16,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Iniciar sesión - Clínica Modelo San Martín</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/estilos.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/estilos.css?v=<%= configuracion.VersionAplicacion.RECURSOS %>">
 </head>
 <body>
 <div class="main-wrapper">
@@ -107,6 +107,6 @@
         </p>
     </div>
 </div>
-<script src="${pageContext.request.contextPath}/js/Validaciones.js"></script>
+<script src="${pageContext.request.contextPath}/js/Validaciones.js?v=<%= configuracion.VersionAplicacion.RECURSOS %>"></script>
 </body>
 </html>

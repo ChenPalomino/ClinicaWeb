@@ -2,14 +2,21 @@ package modelo.repositorio;
 
 import configuracion.ConexionBDSingleton;
 import modelo.dto.ContactoDTO;
+import modelo.dto.EstadisticasUsuariosDTO;
+import modelo.dto.FiltroUsuarioDTO;
+import modelo.dto.PaginaDTO;
 import modelo.dto.RegistroPacienteDTO;
 import modelo.dto.TokenRecuperacionDTO;
+import modelo.dto.UsuarioDTO;
 import modelo.entidades.Usuario;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * PATRÓN: Repository  ->  IMPLEMENTACIÓN (Impl)
@@ -128,18 +135,25 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
 
     @Override
     public boolean existeDni(String dni) {
-        return existe("SELECT 1 FROM tt_datos_personales WHERE dni = ?", dni);
+        return existe("SELECT 1 FROM tt_datos_personales WHERE dni = ? AND id_usuario IS NOT NULL", dni);
     }
 
     @Override
-    public boolean existeCorreo(String correo) {
-        return existe("SELECT 1 FROM tt_correo WHERE LOWER(correo_electronico) = LOWER(?)", correo);
+    public boolean existeCorreo(String correo, String dniPropio) {
+        try {
+            return RepositorioUtil.existe(conexion(), "SELECT 1 FROM tt_correo c "
+                    + "JOIN tt_datos_personales d ON d.id_datos_personales = c.id_datos_personales "
+                    + "WHERE LOWER(c.correo_electronico) = LOWER(?) AND d.dni <> ?", correo, dniPropio);
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al verificar duplicados", e);
+        }
     }
 
     /**
-     * Registra al paciente en 4 tablas con UNA sola sentencia SQL (CTE).
+     * Registra al paciente en 5 tablas con UNA sola sentencia SQL (CTE):
+     * cuenta, datos personales, correo, celular y ficha de paciente.
      * PostgreSQL ejecuta una sentencia de forma atómica: o se insertan las
-     * 4 filas o no se inserta ninguna. Así no quedan registros a medias.
+     * 5 filas o no se inserta ninguna. Así no quedan registros a medias.
      */
     @Override
     public boolean registrarPaciente(Usuario usuario, RegistroPacienteDTO datos) {
@@ -149,15 +163,22 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
             + "                           bloqueado, fecha_creacion, usuario_registro, estado) "
             + "   VALUES (?, ?, ?, ?, 0, FALSE, LOCALTIMESTAMP, 'autoregistro', 'Activo') "
             + "   RETURNING id_usuario), "
-            + "nuevos_datos AS ( "
+            + "nuevos_datos AS ( "                // si admisión ya lo registró como paciente, se enlaza la cuenta
             + "   INSERT INTO tt_datos_personales (id_usuario, nombres, apellidos, dni, fecha_creacion, usuario_registro, estado) "
             + "   SELECT id_usuario, ?, ?, ?, LOCALTIMESTAMP, 'autoregistro', 'Activo' FROM nuevo_usuario "
+            + "   ON CONFLICT (dni) DO UPDATE SET id_usuario = EXCLUDED.id_usuario "
+            + "   WHERE tt_datos_personales.id_usuario IS NULL "
             + "   RETURNING id_datos_personales), "
             + "nuevo_correo AS ( "
             + "   INSERT INTO tt_correo (id_datos_personales, correo_electronico, tipo_correo, fecha_creacion, usuario_registro, estado) "
-            + "   SELECT id_datos_personales, ?, 'Personal', LOCALTIMESTAMP, 'autoregistro', 'Activo' FROM nuevos_datos) "
-            + "INSERT INTO tt_telefono (id_datos_personales, numero_telefono, tipo_telefono, fecha_creacion, usuario_registro, estado) "
-            + "SELECT id_datos_personales, ?, 'Móvil', LOCALTIMESTAMP, 'autoregistro', 'Activo' FROM nuevos_datos";
+            + "   SELECT id_datos_personales, ?, 'Personal', LOCALTIMESTAMP, 'autoregistro', 'Activo' FROM nuevos_datos "
+            + "   ON CONFLICT DO NOTHING), "
+            + "nuevo_telefono AS ( "
+            + "   INSERT INTO tt_telefono (id_datos_personales, numero_telefono, tipo_telefono, fecha_creacion, usuario_registro, estado) "
+            + "   SELECT id_datos_personales, ?, 'Móvil', LOCALTIMESTAMP, 'autoregistro', 'Activo' FROM nuevos_datos) "
+            + "INSERT INTO tt_paciente (id_datos_personales, usuario_registro) "     // ficha de paciente (Etapa 5)
+            + "SELECT id_datos_personales, 'autoregistro' FROM nuevos_datos "
+            + "ON CONFLICT (id_datos_personales) DO NOTHING";
 
         try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
             stmt.setString(1, usuario.getNombreUsuario());
@@ -169,7 +190,8 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
             stmt.setString(7, datos.getDni());
             stmt.setString(8, datos.getCorreo());
             stmt.setString(9, datos.getCelular());
-            return stmt.executeUpdate() > 0;
+            stmt.executeUpdate();     // la última sentencia puede insertar 0 filas si ya tenía ficha
+            return true;
         } catch (SQLException e) {
             throw new RepositorioException("Error al registrar paciente", e);
         }
@@ -279,6 +301,336 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RepositorioException("Error al bloquear la cuenta", e);
+        }
+    }
+
+    // ===================== CRUD DEL PANEL (Etapa 4) =====================
+
+    /** Columnas comunes del listado y del detalle (cuenta + datos personales + 1 correo + 1 celular). */
+    private static final String SELECT_DETALLE =
+          "SELECT u.id_usuario, u.nombre_usuario, u.id_rol, r.nombre_rol, u.estado, u.bloqueado, "
+        + "       u.motivo_bloqueo, u.intentos_fallidos, u.ultimo_acceso, u.fecha_creacion, u.usuario_registro, "
+        + "       d.nombres, d.apellidos, d.dni, c.correo_electronico, t.numero_telefono, "
+        + "       (f.id_datos_personales IS NOT NULL) AS tiene_foto, "
+        + "       COALESCE(EXTRACT(EPOCH FROM f.fecha_actualizacion)::bigint, 0) AS foto_version "
+        + "FROM tt_usuario u "
+        + "JOIN tm_rol r ON r.id_rol = u.id_rol "
+        + "LEFT JOIN tt_datos_personales d ON d.id_usuario = u.id_usuario "
+        + "LEFT JOIN LATERAL (SELECT correo_electronico FROM tt_correo "
+        + "                   WHERE id_datos_personales = d.id_datos_personales AND estado = 'Activo' "
+        + "                   ORDER BY id_correo LIMIT 1) c ON TRUE "
+        + "LEFT JOIN LATERAL (SELECT numero_telefono FROM tt_telefono "
+        + "                   WHERE id_datos_personales = d.id_datos_personales AND estado = 'Activo' "
+        + "                   ORDER BY id_telefono LIMIT 1) t ON TRUE "
+        + "LEFT JOIN tt_foto_perfil f ON f.id_datos_personales = d.id_datos_personales ";
+
+    private static UsuarioDTO mapear(ResultSet rs) throws SQLException {
+        UsuarioDTO u = new UsuarioDTO();
+        u.setIdUsuario(rs.getInt("id_usuario"));
+        u.setNombreUsuario(rs.getString("nombre_usuario"));
+        u.setIdRol(rs.getInt("id_rol"));
+        u.setNombreRol(rs.getString("nombre_rol"));
+        u.setEstado(rs.getString("estado"));
+        u.setBloqueado(rs.getBoolean("bloqueado"));
+        u.setMotivoBloqueo(rs.getString("motivo_bloqueo"));
+        u.setIntentosFallidos(rs.getInt("intentos_fallidos"));
+        u.setUltimoAcceso(rs.getTimestamp("ultimo_acceso"));
+        u.setFechaCreacion(rs.getTimestamp("fecha_creacion"));
+        u.setUsuarioRegistro(rs.getString("usuario_registro"));
+        u.setNombres(rs.getString("nombres"));
+        u.setApellidos(rs.getString("apellidos"));
+        u.setDni(rs.getString("dni"));
+        u.setCorreo(rs.getString("correo_electronico"));
+        u.setCelular(rs.getString("numero_telefono"));
+        u.setTieneFoto(rs.getBoolean("tiene_foto"));
+        u.setFotoVersion(rs.getLong("foto_version"));
+        return u;
+    }
+
+    @Override
+    public PaginaDTO<UsuarioDTO> listar(FiltroUsuarioDTO filtro) {
+        StringBuilder where = new StringBuilder("WHERE 1 = 1 ");
+        List<Object> parametros = new ArrayList<>();
+
+        if (filtro.getTexto() != null) {
+            where.append("AND (u.nombre_usuario ILIKE ? OR d.dni ILIKE ? "
+                       + "     OR (d.nombres || ' ' || d.apellidos) ILIKE ? OR c.correo_electronico ILIKE ?) ");
+            String patron = "%" + filtro.getTexto().replace("%", "").replace("_", "") + "%";
+            for (int i = 0; i < 4; i++) {
+                parametros.add(patron);
+            }
+        }
+        if (filtro.getIdRol() != null) {
+            where.append("AND u.id_rol = ? ");
+            parametros.add(filtro.getIdRol());
+        }
+        if (filtro.isSoloPersonal()) {
+            where.append("AND u.id_rol <> 4 ");          // todo el personal: excluye a los pacientes
+        }
+        if ("ACTIVO".equals(filtro.getEstado())) {
+            where.append("AND u.estado = 'Activo' AND u.bloqueado = FALSE ");
+        } else if ("INACTIVO".equals(filtro.getEstado())) {
+            where.append("AND u.estado = 'Inactivo' ");
+        } else if ("BLOQUEADO".equals(filtro.getEstado())) {
+            where.append("AND u.bloqueado = TRUE ");
+        }
+
+        String sqlTotal = "SELECT COUNT(*) FROM (" + SELECT_DETALLE + where + ") x";
+        String sqlPagina = SELECT_DETALLE + where + "ORDER BY u.id_usuario DESC LIMIT ? OFFSET ?";
+
+        try {
+            int total;
+            try (PreparedStatement stmt = conexion().prepareStatement(sqlTotal)) {
+                asignar(stmt, parametros);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    rs.next();
+                    total = rs.getInt(1);
+                }
+            }
+            List<UsuarioDTO> elementos = new ArrayList<>();
+            try (PreparedStatement stmt = conexion().prepareStatement(sqlPagina)) {
+                int i = asignar(stmt, parametros);
+                stmt.setInt(i++, filtro.getTamanio());
+                stmt.setInt(i, filtro.getOffset());
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        elementos.add(mapear(rs));
+                    }
+                }
+            }
+            return new PaginaDTO<>(elementos, total, filtro.getPagina(), filtro.getTamanio());
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al listar usuarios", e);
+        }
+    }
+
+    @Override
+    public Optional<UsuarioDTO> buscarPorId(Integer idUsuario) {
+        try (PreparedStatement stmt = conexion().prepareStatement(SELECT_DETALLE + "WHERE u.id_usuario = ?")) {
+            stmt.setInt(1, idUsuario);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? Optional.of(mapear(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al buscar el usuario", e);
+        }
+    }
+
+    /**
+     * Crea la cuenta y sus datos personales, correo y celular en UNA
+     * transacción: si algo falla, no se guarda nada (rollback).
+     */
+    @Override
+    public Integer insertar(UsuarioDTO u) {
+        try (Connection cn = ConexionBDSingleton.getInstancia().abrirConexionTransaccional()) {
+            try {
+                int idUsuario;
+                try (PreparedStatement stmt = cn.prepareStatement(
+                        "INSERT INTO tt_usuario (nombre_usuario, contrasena, id_rol, id_permiso, estado, usuario_registro) "
+                      + "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_usuario")) {
+                    stmt.setString(1, u.getNombreUsuario());
+                    stmt.setString(2, u.getContrasenaHash());
+                    stmt.setInt(3, u.getIdRol());
+                    stmt.setInt(4, u.getIdRol());          // permiso por defecto = el del rol
+                    stmt.setString(5, u.getEstado());
+                    stmt.setString(6, u.getUsuarioRegistro());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        rs.next();
+                        idUsuario = rs.getInt(1);
+                    }
+                }
+                guardarDatosPersonales(cn, idUsuario, u);
+                cn.commit();
+                return idUsuario;
+            } catch (SQLException e) {
+                cn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al crear el usuario", e);
+        }
+    }
+
+    /** Actualiza cuenta + datos personales en una transacción. */
+    @Override
+    public boolean actualizar(UsuarioDTO u) {
+        try (Connection cn = ConexionBDSingleton.getInstancia().abrirConexionTransaccional()) {
+            try {
+                int filas;
+                try (PreparedStatement stmt = cn.prepareStatement(
+                        "UPDATE tt_usuario SET nombre_usuario = ?, id_rol = ?, id_permiso = ?, estado = ? "
+                      + "WHERE id_usuario = ?")) {
+                    stmt.setString(1, u.getNombreUsuario());
+                    stmt.setInt(2, u.getIdRol());
+                    stmt.setInt(3, u.getIdRol());
+                    stmt.setString(4, u.getEstado());
+                    stmt.setInt(5, u.getIdUsuario());
+                    filas = stmt.executeUpdate();
+                }
+                if (filas == 0) {
+                    cn.rollback();
+                    return false;
+                }
+                if (u.getContrasenaHash() != null) {
+                    try (PreparedStatement stmt = cn.prepareStatement(
+                            "UPDATE tt_usuario SET contrasena = ? WHERE id_usuario = ?")) {
+                        stmt.setString(1, u.getContrasenaHash());
+                        stmt.setInt(2, u.getIdUsuario());
+                        stmt.executeUpdate();
+                    }
+                }
+                guardarDatosPersonales(cn, u.getIdUsuario(), u);
+                cn.commit();
+                return true;
+            } catch (SQLException e) {
+                cn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al actualizar el usuario", e);
+        }
+    }
+
+    /** Inserta o actualiza datos personales, correo y celular (dentro de la transacción recibida). */
+    private void guardarDatosPersonales(Connection cn, int idUsuario, UsuarioDTO u) throws SQLException {
+        int idDatos;
+        try (PreparedStatement stmt = cn.prepareStatement(
+                "INSERT INTO tt_datos_personales (id_usuario, nombres, apellidos, dni, usuario_registro) "
+              + "VALUES (?, ?, ?, ?, ?) "
+              + "ON CONFLICT (id_usuario) DO UPDATE SET nombres = EXCLUDED.nombres, "
+              + "    apellidos = EXCLUDED.apellidos, dni = EXCLUDED.dni "
+              + "RETURNING id_datos_personales")) {
+            stmt.setInt(1, idUsuario);
+            stmt.setString(2, u.getNombres());
+            stmt.setString(3, u.getApellidos());
+            stmt.setString(4, u.getDni());
+            stmt.setString(5, u.getUsuarioRegistro());
+            try (ResultSet rs = stmt.executeQuery()) {
+                rs.next();
+                idDatos = rs.getInt(1);
+            }
+        }
+        RepositorioUtil.guardarContacto(cn, "tt_correo", "id_correo", "correo_electronico", "tipo_correo", "Personal",
+                idDatos, u.getCorreo(), u.getUsuarioRegistro());
+        RepositorioUtil.guardarContacto(cn, "tt_telefono", "id_telefono", "numero_telefono", "tipo_telefono", "Móvil",
+                idDatos, u.getCelular(), u.getUsuarioRegistro());
+        if (u.getIdRol() == modelo.entidades.Rol.PACIENTE) {
+            // Una cuenta de paciente siempre tiene su ficha (N.º de historia, cobertura)
+            try (PreparedStatement stmt = cn.prepareStatement(
+                    "INSERT INTO tt_paciente (id_datos_personales, usuario_registro) SELECT ?, ? "
+                  + "WHERE NOT EXISTS (SELECT 1 FROM tt_paciente WHERE id_datos_personales = ?)")) {
+                stmt.setInt(1, idDatos);
+                stmt.setString(2, u.getUsuarioRegistro());
+                stmt.setInt(3, idDatos);
+                stmt.executeUpdate();
+            }
+        }
+    }
+
+    /** Eliminación lógica: la cuenta queda Inactiva y ya no puede iniciar sesión. */
+    @Override
+    public boolean eliminar(Integer idUsuario) {
+        return actualizarFila("UPDATE tt_usuario SET estado = 'Inactivo' WHERE id_usuario = ?", idUsuario);
+    }
+
+    @Override
+    public boolean reactivar(int idUsuario) {
+        return actualizarFila("UPDATE tt_usuario SET estado = 'Activo' WHERE id_usuario = ?", idUsuario);
+    }
+
+    @Override
+    public void bloquearPorAdministrador(int idUsuario) {
+        ejecutar("UPDATE tt_usuario SET bloqueado = TRUE, motivo_bloqueo = 'ADMINISTRADOR', "
+               + "fecha_bloqueo = LOCALTIMESTAMP WHERE id_usuario = ?", idUsuario);
+    }
+
+    @Override
+    public boolean existeNombreUsuarioExcepto(String nombreUsuario, int idExcluir) {
+        return existeExcepto("SELECT 1 FROM tt_usuario WHERE LOWER(nombre_usuario) = LOWER(?) AND id_usuario <> ?",
+                nombreUsuario, idExcluir);
+    }
+
+    @Override
+    public boolean existeDniExcepto(String dni, int idExcluir) {
+        return existeExcepto("SELECT 1 FROM tt_datos_personales WHERE dni = ? AND COALESCE(id_usuario, 0) <> ?",
+                dni, idExcluir);
+    }
+
+    @Override
+    public boolean existeCorreoExcepto(String correo, int idExcluir) {
+        return existeExcepto("SELECT 1 FROM tt_correo c JOIN tt_datos_personales d "
+                + "ON d.id_datos_personales = c.id_datos_personales "
+                + "WHERE LOWER(c.correo_electronico) = LOWER(?) AND COALESCE(d.id_usuario, 0) <> ?",
+                correo, idExcluir);
+    }
+
+    @Override
+    public EstadisticasUsuariosDTO obtenerEstadisticas() {
+        String sql = "SELECT COUNT(*), "
+                   + "  COUNT(*) FILTER (WHERE estado = 'Activo' AND bloqueado = FALSE), "
+                   + "  COUNT(*) FILTER (WHERE estado = 'Inactivo'), "
+                   + "  COUNT(*) FILTER (WHERE bloqueado = TRUE), "
+                   + "  COUNT(*) FILTER (WHERE id_rol = 4), "
+                   + "  COUNT(*) FILTER (WHERE id_rol <> 4) "
+                   + "FROM tt_usuario";
+        String sqlRoles = "SELECT r.nombre_rol, COUNT(u.id_usuario) FROM tm_rol r "
+                        + "LEFT JOIN tt_usuario u ON u.id_rol = r.id_rol AND u.estado = 'Activo' "
+                        + "WHERE r.estado = 'Activo' GROUP BY r.id_rol, r.nombre_rol ORDER BY r.id_rol";
+        String sqlDias = "SELECT to_char(d, 'DD/MM'), COUNT(u.id_usuario) "
+                       + "FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, INTERVAL '1 day') AS d "
+                       + "LEFT JOIN tt_usuario u ON u.fecha_creacion::date = d::date "
+                       + "GROUP BY d ORDER BY d";
+        try {
+            EstadisticasUsuariosDTO est;
+            try (PreparedStatement stmt = conexion().prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
+                rs.next();
+                est = new EstadisticasUsuariosDTO(rs.getInt(1), rs.getInt(2), rs.getInt(3),
+                        rs.getInt(4), rs.getInt(5), rs.getInt(6));
+            }
+            try (PreparedStatement stmt = conexion().prepareStatement(sqlRoles); ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    est.getRolesEtiquetas().add(rs.getString(1));
+                    est.getRolesValores().add(rs.getInt(2));
+                }
+            }
+            try (PreparedStatement stmt = conexion().prepareStatement(sqlDias); ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    est.getDiasEtiquetas().add(rs.getString(1));
+                    est.getDiasValores().add(rs.getInt(2));
+                }
+            }
+            return est;
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al calcular estadísticas", e);
+        }
+    }
+
+    private int asignar(PreparedStatement stmt, List<Object> parametros) throws SQLException {
+        int i = 1;
+        for (Object p : parametros) {
+            stmt.setObject(i++, p);
+        }
+        return i;
+    }
+
+    private boolean actualizarFila(String sql, int id) {
+        try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al actualizar el usuario", e);
+        }
+    }
+
+    private boolean existeExcepto(String sql, String valor, int idExcluir) {
+        try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
+            stmt.setString(1, valor);
+            stmt.setInt(2, idExcluir);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al verificar duplicados", e);
         }
     }
 

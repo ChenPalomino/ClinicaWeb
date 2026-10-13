@@ -14,15 +14,15 @@ import java.io.IOException;
 import java.util.Set;
 
 /**
- * PATRÓN: Intercepting Filter
- * Propósito: revisar TODAS las peticiones a /jsp/* ANTES de que lleguen a la
+ * PATRÓN: Intercepting Filter  (control de AUTENTICACIÓN)
+ * Propósito: revisar TODAS las peticiones a /jsp/* y /panel ANTES de que lleguen a la
  * página. Si la página es privada y no hay sesión, redirige al login.
  * Así ninguna página privada necesita repetir el "if (user == null)".
  *
  * También evita que, después de cerrar sesión, el botón "Atrás" del
  * navegador muestre el menú guardado en caché.
  */
-@WebFilter(filterName = "AutenticacionFilter", urlPatterns = {"/jsp/*"})
+@WebFilter(filterName = "AutenticacionFilter", urlPatterns = {"/jsp/*", "/panel", "/perfil", "/foto"})
 public class AutenticacionFilter implements Filter {
 
     private static final Set<String> PAGINAS_PUBLICAS = Set.of(
@@ -48,7 +48,7 @@ public class AutenticacionFilter implements Filter {
         if (PAGINAS_PUBLICAS.contains(ruta)) {
             // Si ya inició sesión y vuelve al login, lo mandamos al menú
             if (logueado && ruta.equals("/jsp/login.jsp")) {
-                response.sendRedirect(request.getContextPath() + "/jsp/menuPrincipal.jsp");
+                response.sendRedirect(request.getContextPath() + "/panel");
                 return;
             }
             chain.doFilter(req, res);

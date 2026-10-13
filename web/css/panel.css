@@ -1,0 +1,200 @@
+/* =========================================================
+   ClinicaWeb - ajustes sobre AdminLTE para el dashboard
+   (colores de la clínica, avatares, estados vacíos)
+   ========================================================= */
+:root {
+    --clinica-azul-oscuro: #0a1f3f;
+    --clinica-azul: #003366;
+    --clinica-azul-claro: #1e5aa8;
+}
+
+/* ---- Menú lateral con los colores de la clínica ---- */
+.main-sidebar.sidebar-dark-primary { background: var(--clinica-azul-oscuro); }
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active {
+    background-color: var(--clinica-azul-claro);
+    box-shadow: none;
+}
+.brand-link { border-bottom-color: rgba(255, 255, 255, .1) !important; }
+.logo-cruz {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 33px; height: 33px; margin-left: .8rem; margin-right: .5rem;
+    border-radius: 8px; background: #fff; color: var(--clinica-azul);
+    float: none !important; opacity: 1 !important;
+}
+.nav-sidebar .nav-header { font-size: .72rem; letter-spacing: .06em; color: #8aa0bf !important; padding-top: 1rem; }
+.opcion-proxima { color: #6c7a91 !important; cursor: not-allowed; }
+.text-muted-claro { color: #9fb0c8; }
+
+/* ---- Avatares con iniciales ---- */
+.avatar-iniciales {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--clinica-azul-claro); color: #fff;
+    font-weight: 700; font-size: .85rem; flex-shrink: 0;
+}
+.avatar-sm { width: 28px; height: 28px; font-size: .75rem; }
+.avatar-tabla { background: #e8eef7; color: var(--clinica-azul); }
+.user-panel .image { padding-left: .8rem; }
+.user-panel .info { line-height: 1.2; }
+
+/* ---- Inicio ---- */
+.bienvenida { background: #fff; }
+.modulo {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px; border-radius: 8px; border: 1px solid #e3e8ef; height: 100%;
+}
+.modulo i { font-size: 1.4rem; width: 32px; text-align: center; }
+.modulo span { display: flex; flex-direction: column; line-height: 1.25; }
+.modulo small { color: #6c757d; }
+.modulo-disponible { color: var(--clinica-azul); background: #f4f8fd; }
+.modulo-disponible:hover { border-color: var(--clinica-azul-claro); text-decoration: none; background: #eaf2fc; }
+.modulo-proximo { color: #9aa5b1; background: #fafbfc; }
+
+/* ---- Listado de usuarios ---- */
+.table-usuarios td { vertical-align: middle; }
+.fila-inactiva td { color: #8a94a3; }
+.fila-inactiva .avatar-tabla { background: #eceff3; color: #9aa5b1; }
+.estado-vacio { text-align: center; padding: 48px 16px; }
+.estado-vacio > i { font-size: 2.6rem; margin-bottom: 12px; display: block; }
+
+/* ---- Formulario ---- */
+.lista-requisitos { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; color: #6c757d; }
+.lista-requisitos li::before { content: "○ "; }
+.lista-requisitos li.cumple { color: #28a745; }
+.lista-requisitos li.cumple::before { content: "✓ "; }
+.barra-acciones {
+    position: sticky; bottom: 0; z-index: 5;
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 0 16px; background: #f4f6f9;
+}
+
+/* Foco visible para teclado (accesibilidad) */
+.btn:focus-visible, .form-control:focus-visible, .nav-link:focus-visible, .page-link:focus-visible {
+    outline: 3px solid #93c5fd; outline-offset: 2px;
+}
+
+/* Etiqueta "Pronto" más discreta para que no tape el texto del menú */
+.nav-sidebar .badge.right { font-size: .62rem; padding: .2em .45em; top: .85rem; }
+
+/* Celular: los botones de acción se apilan para que ninguno quede fuera de la pantalla */
+@media (max-width: 575.98px) {
+    .table-usuarios td:last-child { white-space: normal !important; width: 48px; }
+    .table-usuarios td:last-child .btn { display: block; width: 36px; margin: 0 0 4px auto; }
+    .table-usuarios .avatar-tabla { display: none; }
+}
+
+/* =========================================================
+   Interfaz más dinámica: tarjetas, avatares, animaciones
+   ========================================================= */
+.card { border-radius: 10px; box-shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 2px 8px rgba(15, 23, 42, .05); }
+.card > .card-header { border-top-left-radius: 10px; border-top-right-radius: 10px; }
+.small-box { border-radius: 10px; overflow: hidden; transition: transform .2s ease, box-shadow .2s ease; }
+.small-box:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(15, 23, 42, .18); }
+.modulo { transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.modulo-disponible:hover { transform: translateY(-2px); }
+
+/* Aparición suave al cargar (se desactiva si el usuario prefiere menos movimiento) */
+@keyframes aparecer { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.animar { animation: aparecer .45s ease both; }
+.row > .animar:nth-child(2) { animation-delay: .05s; }
+.row > .animar:nth-child(3) { animation-delay: .1s; }
+.row > .animar:nth-child(4) { animation-delay: .15s; }
+@media (prefers-reduced-motion: reduce) { .animar, .small-box, .modulo { animation: none; transition: none; } }
+
+.grafico { position: relative; height: 240px; }
+
+/* Avatares: foto o iniciales en varios tamaños */
+.avatar-foto { object-fit: cover; background: #e8eef7; padding: 0; }
+.avatar-lg { width: 46px; height: 46px; font-size: 1rem; }
+.avatar-xl { width: 64px; height: 64px; font-size: 1.4rem; }
+.avatar-xxl { width: 128px; height: 128px; font-size: 2.6rem; border: 4px solid #fff; box-shadow: 0 4px 14px rgba(15, 23, 42, .18); }
+.user-panel { text-decoration: none !important; border-radius: 8px; transition: background .2s; }
+.user-panel:hover { background: rgba(255, 255, 255, .06); }
+.user-panel .info { overflow: hidden; }
+.dropdown-perfil { min-width: 270px; }
+.saludo-hora { font-size: .9rem; }
+
+/* Bienvenida */
+.bienvenida { border-left: 4px solid var(--clinica-azul-claro); }
+
+/* Mi perfil */
+.card-perfil { overflow: hidden; }
+.card-perfil-portada { height: 92px; background: linear-gradient(135deg, var(--clinica-azul-oscuro), var(--clinica-azul-claro)); }
+.card-perfil-avatar { margin-top: -64px; }
+.descripcion-perfil { font-style: italic; color: #475569; }
+.form-estrecho { max-width: 460px; }
+.zona-archivo {
+    display: block; text-align: center; cursor: pointer; margin: 0;
+    padding: 22px 16px; border: 2px dashed #b8c4d6; border-radius: 10px; font-weight: 400;
+    transition: border-color .2s, background .2s;
+}
+.zona-archivo i { font-size: 2rem; color: var(--clinica-azul-claro); display: block; margin-bottom: 6px; }
+.zona-archivo:hover, .zona-archivo.arrastrando { border-color: var(--clinica-azul-claro); background: #f1f6fd; }
+
+/* Selector de tema */
+.opcion-tema {
+    display: flex; flex-direction: column; gap: 4px; cursor: pointer; height: 100%; margin: 0;
+    padding: 12px; border: 2px solid #e3e8ef; border-radius: 10px; font-weight: 400;
+}
+.opcion-tema input { position: absolute; opacity: 0; }
+.opcion-tema small { color: #6c757d; }
+.opcion-tema:has(input:checked) { border-color: var(--clinica-azul-claro); background: #f1f6fd; }
+.opcion-tema:has(input:focus-visible) { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.muestra-tema { display: flex; height: 56px; border-radius: 6px; overflow: hidden; margin-bottom: 6px; border: 1px solid #d5dce6; }
+.muestra-tema span:first-child { width: 30%; background: var(--clinica-azul-oscuro); }
+.muestra-tema span:last-child { flex: 1; }
+.muestra-claro span:last-child { background: #f4f6f9; }
+.muestra-oscuro span:last-child { background: #1e293b; }
+.muestra-sistema span:last-child { background: linear-gradient(90deg, #f4f6f9 50%, #1e293b 50%); }
+
+/* =========================================================
+   MODO OSCURO (complementa el dark-mode de AdminLTE)
+   ========================================================= */
+body.dark-mode { --texto-suave: #94a3b8; }
+body.dark-mode .content-wrapper { background-color: #0f172a; }
+body.dark-mode .main-header.navbar-white { background-color: #111c33; border-bottom-color: #1e293b; }
+body.dark-mode .main-header .nav-link,
+body.dark-mode .main-header .navbar-nav .nav-link { color: #cbd5e1; }
+body.dark-mode .main-footer { background-color: #111c33; border-top-color: #1e293b; color: #94a3b8; }
+body.dark-mode .card { background-color: #1e293b; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
+body.dark-mode .card-header, body.dark-mode .card-footer,
+body.dark-mode .list-group-item { border-color: #334155; background-color: transparent; }
+body.dark-mode .card-footer { background-color: #172033; }
+body.dark-mode .bienvenida { background-color: #1e293b; }
+body.dark-mode .text-muted, body.dark-mode .modulo small, body.dark-mode .opcion-tema small { color: #94a3b8 !important; }
+body.dark-mode .table, body.dark-mode .table td, body.dark-mode .table th { color: #e2e8f0; border-color: #334155; }
+body.dark-mode .table .thead-light th { background-color: #172033; color: #cbd5e1; border-color: #334155; }
+body.dark-mode .table-hover tbody tr:hover { background-color: rgba(148, 163, 184, .08); color: #fff; }
+body.dark-mode .fila-inactiva td { color: #64748b; }
+body.dark-mode .form-control, body.dark-mode .custom-select,
+body.dark-mode .input-group-text { background-color: #0f172a; border-color: #475569; color: #e2e8f0; }
+body.dark-mode .form-control:focus { border-color: #5b9bff; }
+body.dark-mode .form-control[readonly] { background-color: #1a2436; }
+body.dark-mode .barra-acciones { background: #0f172a; }
+body.dark-mode .avatar-tabla, body.dark-mode .avatar-foto { background: #334155; color: #e2e8f0; }
+body.dark-mode .avatar-xxl { border-color: #1e293b; }
+body.dark-mode .modulo { border-color: #334155; }
+body.dark-mode .modulo-disponible { background: #172a46; color: #bfdbfe; }
+body.dark-mode .modulo-disponible:hover { background: #1d355a; }
+body.dark-mode .modulo-proximo { background: #182235; color: #64748b; }
+body.dark-mode .zona-archivo { border-color: #475569; }
+body.dark-mode .zona-archivo:hover, body.dark-mode .zona-archivo.arrastrando,
+body.dark-mode .opcion-tema:has(input:checked) { background: #172a46; }
+body.dark-mode .opcion-tema { border-color: #334155; }
+body.dark-mode .descripcion-perfil { color: #cbd5e1; }
+body.dark-mode .badge-light { background-color: #334155; color: #e2e8f0; border-color: #475569 !important; }
+body.dark-mode .dropdown-menu { background-color: #1e293b; border-color: #334155; }
+body.dark-mode .dropdown-item, body.dark-mode .dropdown-item-text { color: #e2e8f0; }
+body.dark-mode .dropdown-item:hover { background-color: #334155; }
+body.dark-mode .modal-content { background-color: #1e293b; color: #e2e8f0; }
+body.dark-mode .modal-header, body.dark-mode .modal-footer { border-color: #334155; }
+body.dark-mode .close { color: #e2e8f0; text-shadow: none; }
+body.dark-mode .page-link { background-color: #1e293b; border-color: #334155; color: #93c5fd; }
+body.dark-mode .page-item.disabled .page-link { background-color: #172033; color: #64748b; }
+body.dark-mode .nav-tabs .nav-link.active { background-color: #1e293b; color: #fff; }
+body.dark-mode .breadcrumb-item.active { color: #94a3b8; }
+body.dark-mode .progress { background-color: #334155; }
+body.dark-mode .callout { background-color: #1e293b; }
+body.dark-mode .btn-outline-primary { color: #93c5fd; border-color: #3b82f6; }
+body.dark-mode .btn-outline-primary:hover { background-color: #1e5aa8; color: #fff; }
+body.dark-mode .btn-outline-secondary { color: #cbd5e1; border-color: #64748b; }

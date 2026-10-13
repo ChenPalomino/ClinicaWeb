@@ -1,0 +1,38 @@
+<%@ page pageEncoding="UTF-8" %>
+<%-- Plantilla del dashboard (parte inferior): cierre del contenido, pie, ventana de confirmación y scripts. --%>
+            </div>
+        </section>
+    </div>
+
+    <footer class="main-footer small">
+        <strong>Clínica Modelo San Martín</strong> &middot; Sistema Integrado de Gestión
+        <div class="float-right d-none d-sm-inline-block">Arquitectura MVC &middot; Java + PostgreSQL &middot; <span class="text-muted" title="Versión instalada">v <%= VersionAplicacion.VERSION %></span></div>
+    </footer>
+</div>
+
+<%-- Ventana de confirmación reutilizable (prevención de errores: toda acción importante se confirma) --%>
+<div class="modal fade" id="modalConfirmar" tabindex="-1" role="dialog" aria-labelledby="modalConfirmarTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <form class="modal-content" method="POST" id="formConfirmar">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfirmarTitulo">Confirmar</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body" id="modalConfirmarMensaje"></div>
+            <div class="modal-footer">
+                <input type="hidden" name="accion">
+                <input type="hidden" name="id">
+                <input type="hidden" name="regreso">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn" id="modalConfirmarBoton">Confirmar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2.0/dist/js/adminlte.min.js"></script>
+<script src="<%= ctx %>/js/panel.js?v=<%= VersionAplicacion.RECURSOS %>"></script>
+</body>
+</html>

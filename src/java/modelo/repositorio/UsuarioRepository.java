@@ -1,8 +1,12 @@
 package modelo.repositorio;
 
 import modelo.dto.ContactoDTO;
+import modelo.dto.EstadisticasUsuariosDTO;
+import modelo.dto.FiltroUsuarioDTO;
+import modelo.dto.PaginaDTO;
 import modelo.dto.RegistroPacienteDTO;
 import modelo.dto.TokenRecuperacionDTO;
+import modelo.dto.UsuarioDTO;
 import modelo.entidades.Usuario;
 
 /**
@@ -11,12 +15,34 @@ import modelo.entidades.Usuario;
  * Define QUÉ operaciones de datos existen para los usuarios, sin decir
  * CÓMO se hacen. La implementación con SQL está en UsuarioRepositoryImpl.
  *
+ * Hereda el CRUD básico de CrudRepository (insertar, buscarPorId,
+ * actualizar, eliminar) y agrega las consultas propias de los usuarios.
+ *
  * Quien usa el repositorio (AutenticacionFacade, RegistroService,
- * RecuperacionService) depende de ESTA interfaz, no de la clase con SQL:
+ * RecuperacionService, UsuarioService) depende de ESTA interfaz, no de la
+ * clase con SQL:
  *   - Se puede cambiar de base de datos creando otra implementación.
  *   - En pruebas unitarias se puede usar un repositorio falso en memoria.
  */
-public interface UsuarioRepository {
+public interface UsuarioRepository extends CrudRepository<UsuarioDTO, Integer> {
+
+    // ---------------- CRUD del panel (Etapa 4) ----------------
+    /** Listado con búsqueda, filtros y paginación. */
+    PaginaDTO<UsuarioDTO> listar(FiltroUsuarioDTO filtro);
+
+    /** Vuelve a activar un usuario eliminado lógicamente. */
+    boolean reactivar(int idUsuario);
+
+    /** Bloqueo manual desde el panel (motivo ADMINISTRADOR). */
+    void bloquearPorAdministrador(int idUsuario);
+
+    boolean existeNombreUsuarioExcepto(String nombreUsuario, int idExcluir);
+
+    boolean existeDniExcepto(String dni, int idExcluir);
+
+    boolean existeCorreoExcepto(String correo, int idExcluir);
+
+    EstadisticasUsuariosDTO obtenerEstadisticas();
 
     // ---------------- Autenticación ----------------
     /** Busca un usuario activo por su nombre de usuario o por su DNI. */
@@ -35,9 +61,11 @@ public interface UsuarioRepository {
     // ---------------- Registro ----------------
     boolean existeNombreUsuario(String nombreUsuario);
 
+    /** true si ya hay una CUENTA con ese DNI (un paciente registrado en admisión aún no tiene cuenta). */
     boolean existeDni(String dni);
 
-    boolean existeCorreo(String correo);
+    /** true si el correo pertenece a una persona con OTRO DNI. */
+    boolean existeCorreo(String correo, String dniPropio);
 
     boolean registrarPaciente(Usuario usuario, RegistroPacienteDTO datos);
 
