@@ -88,6 +88,8 @@ public class PerfilController extends HttpServlet {
                     form.setCorreo(request.getParameter("correo"));
                     form.setCelular(request.getParameter("celular"));
                     form.setDescripcion(request.getParameter("descripcion"));
+                    form.setIdSexo(ControladorUtil.enteroONulo(request.getParameter("idSexo")));
+                    form.setFechaNacimiento(ControladorUtil.fecha(request.getParameter("fechaNacimiento")));
                     Map<String, String> errores = servicio.actualizarDatos(usuario, form);
                     if (!errores.isEmpty()) {
                         // Se vuelve a mostrar lo que escribió, con los errores
@@ -96,6 +98,8 @@ public class PerfilController extends HttpServlet {
                         form.setTieneFoto(actual.isTieneFoto());
                         form.setFotoVersion(actual.getFotoVersion());
                         if (actual.isTieneDatosPersonales()) form.setDni(actual.getDni());
+                        form.setNumeroHistoria(actual.getNumeroHistoria());
+                        form.setNombreCobertura(actual.getNombreCobertura());
                         mostrar(request, response, form, "datos", errores);
                         return;
                     }
@@ -143,6 +147,11 @@ public class PerfilController extends HttpServlet {
         request.setAttribute("perfilForm", perfil);
         request.setAttribute("tab", tab);
         request.setAttribute("errores", errores);
+        try {
+            request.setAttribute("sexos", new PerfilService().sexos());
+        } catch (RuntimeException e) {
+            request.setAttribute("sexos", java.util.List.of());
+        }
         request.setAttribute("tituloPagina", "Mi perfil");
         request.setAttribute("menuActivo", "perfil");
         request.getRequestDispatcher(VISTA).forward(request, response);

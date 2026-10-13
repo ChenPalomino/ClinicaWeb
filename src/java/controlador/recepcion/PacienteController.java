@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 import modelo.dto.FiltroBusquedaDTO;
 import modelo.dto.PacienteDTO;
 import modelo.entidades.Usuario;
+import modelo.servicios.AuditoriaService;
 import modelo.servicios.PacienteService;
 
 import java.io.IOException;
@@ -62,6 +63,8 @@ public class PacienteController extends HttpServlet {
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("coberturas", servicio.coberturas());
+            request.setAttribute("puedeDesactivar",
+                    PacienteService.puedeDesactivar((Usuario) request.getSession().getAttribute("usuarioLogueado")));
         } catch (RuntimeException e) {
             System.err.println("PacienteController: " + e.getMessage());
             request.setAttribute("errorDatos", true);
@@ -97,11 +100,11 @@ public class PacienteController extends HttpServlet {
                     return;
                 }
                 case "desactivar":
-                    ControladorUtil.resultado(session, servicio.desactivar(id),
+                    ControladorUtil.resultado(session, servicio.desactivar(id, sesion),
                             "Paciente desactivado. Su historia se conserva y puedes reactivarlo cuando quieras.");
                     break;
                 case "reactivar":
-                    ControladorUtil.resultado(session, servicio.reactivar(id), "Paciente reactivado.");
+                    ControladorUtil.resultado(session, servicio.reactivar(id, sesion), "Paciente reactivado.");
                     break;
                 default:
                     MensajeFlash.error(session, "Acción no reconocida.");
@@ -119,6 +122,11 @@ public class PacienteController extends HttpServlet {
         request.setAttribute("errores", errores);
         request.setAttribute("coberturas", servicio.coberturas());
         request.setAttribute("sexos", servicio.sexos());
+        Usuario sesion = (Usuario) request.getSession().getAttribute("usuarioLogueado");
+        request.setAttribute("puedeCorregirIdentidad", PacienteService.puedeCorregirIdentidad(sesion));
+        if (!p.isNuevo()) {
+            request.setAttribute("historial", new AuditoriaService().historial("PACIENTE", p.getIdPaciente()));
+        }
         request.setAttribute("tituloPagina", p.isNuevo() ? "Nuevo paciente" : "Editar paciente");
         request.getRequestDispatcher(VISTA_FORM).forward(request, response);
     }

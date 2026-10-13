@@ -62,6 +62,9 @@ public class AutorizacionFilter implements Filter {
             response.sendRedirect(request.getContextPath() + "/jsp/login.jsp?error=sesion");
             return;
         }
+        if (!SesionVigente.revisar(request, response)) {
+            return;     // cuenta bloqueada/desactivada/rol cambiado, o pestaña de otra cuenta
+        }
         if (!puedeEntrar(request.getServletPath(), usuario.getRolId())) {
             MensajeFlash.aviso(session, "No tienes permiso para entrar a esa sección. Te llevamos a tu inicio.");
             response.sendRedirect(request.getContextPath() + "/panel");

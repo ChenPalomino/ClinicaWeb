@@ -6,6 +6,52 @@
  */
 $(function () {
 
+    // =====================================================================
+    //  UNA CUENTA POR NAVEGADOR: todas las pestañas comparten la misma sesión.
+    //  Si en otra pestaña se cierra sesión o se entra con otra cuenta, esta
+    //  pestaña lo detecta y no deja trabajar con datos de la cuenta anterior.
+    // =====================================================================
+    const miCuenta = document.body.dataset.usuario;
+    // Cada formulario de acción indica a qué cuenta pertenece esta pestaña (el servidor lo comprueba)
+    document.querySelectorAll("form").forEach(function (form) {
+        if ((form.getAttribute("method") || "").toUpperCase() !== "POST" || form.elements._cuenta) return;
+        const oculto = document.createElement("input");
+        oculto.type = "hidden"; oculto.name = "_cuenta"; oculto.value = miCuenta;
+        form.appendChild(oculto);
+    });
+    function cuentaActiva() { try { return localStorage.getItem("clinica.sesion.activa"); } catch (e) { return null; } }
+    function avisoPestana(sinSesion) {
+        const anterior = document.getElementById("avisoPestana");
+        if (anterior) anterior.remove();      // se actualiza (ej. primero se cerró sesión y luego entró otra cuenta)
+        const aviso = document.createElement("div");
+        aviso.id = "avisoPestana";
+        aviso.className = "aviso-pestana";
+        aviso.setAttribute("role", "alertdialog");
+        aviso.setAttribute("aria-modal", "true");
+        aviso.innerHTML = '<div class="card shadow-lg"><div class="card-body text-center p-4">'
+            + '<i class="fas fa-user-lock fa-2x text-warning mb-3" aria-hidden="true"></i>'
+            + '<h5>Esta pestaña quedó desactualizada</h5>'
+            + '<p class="text-muted mb-3"></p>'
+            + '<a class="btn btn-primary"></a></div></div>';
+        aviso.querySelector("p").textContent = sinSesion
+            ? "Se cerró la sesión en otra pestaña de este navegador."
+            : "En otra pestaña de este navegador se inició sesión con otra cuenta. Un navegador mantiene una sola cuenta "
+              + "abierta a la vez: para usar dos cuentas al mismo tiempo, abre la otra en una ventana privada o en otro navegador.";
+        const boton = aviso.querySelector("a");
+        boton.textContent = sinSesion ? "Iniciar sesión" : "Ir a la cuenta abierta";
+        boton.href = cuerpoCtx() + (sinSesion ? "/jsp/login.jsp" : "/panel");
+        document.body.appendChild(aviso);
+        boton.focus();
+    }
+    function cuerpoCtx() { return document.body.dataset.ctx || ""; }
+    function revisarPestana() {
+        const activa = cuentaActiva();
+        if (activa !== null && activa !== miCuenta) avisoPestana(activa === "0");
+    }
+    window.addEventListener("storage", function (e) { if (e.key === "clinica.sesion.activa") revisarPestana(); });
+    window.addEventListener("focus", revisarPestana);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) revisarPestana(); });
+
     // ---------- Tooltips ----------
     $('[data-toggle="tooltip"]').tooltip();
 
@@ -143,6 +189,19 @@ $(function () {
         actualizar();
     });
 
+    // ---------- Código sugerido según el tipo (SRV- servicio / PRD- producto) ----------
+    const campoCodigo = document.querySelector("[data-codigo-servicio]");
+    const grupoTipo = document.getElementById("tipo");
+    if (campoCodigo && grupoTipo && campoCodigo.dataset.codigoServicio) {
+        $(grupoTipo).on("change", function () {
+            const sugeridos = [campoCodigo.dataset.codigoServicio, campoCodigo.dataset.codigoProducto, ""];
+            // Solo se cambia si el usuario no escribió un código propio
+            if (sugeridos.indexOf(campoCodigo.value.trim().toUpperCase()) >= 0) {
+                campoCodigo.value = valorDe(grupoTipo) === "PRODUCTO" ? campoCodigo.dataset.codigoProducto : campoCodigo.dataset.codigoServicio;
+            }
+        });
+    }
+
     // ---------- Edad calculada al escribir la fecha de nacimiento ----------
     document.querySelectorAll("[data-edad-de]").forEach(function (salida) {
         const campo = document.getElementById(salida.dataset.edadDe);
@@ -183,8 +242,13 @@ $(function () {
             // Se guarda en la cuenta del usuario, en segundo plano (sin recargar la página)
             fetch(cuerpo.dataset.ctx + "/perfil", {
                 method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: "accion=tema&tema=" + encodeURIComponent(tema)
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "fetch" },
+                body: "accion=tema&tema=" + encodeURIComponent(tema) + "&_cuenta=" + encodeURIComponent(miCuenta)
+            }).then(function (r) {
+                if (r.status === 409) revisarPestana();                                  // pestaña de otra cuenta
+                if (r.status === 401) {
+                    window.location.href = cuerpo.dataset.ctx + "/jsp/login.jsp?error=" + (r.headers.get("X-Motivo") || "sesion");
+                }
             }).catch(function () { /* sin conexión: se mantiene solo en esta página */ });
         }
     }

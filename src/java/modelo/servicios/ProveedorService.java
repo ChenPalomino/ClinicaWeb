@@ -1,5 +1,8 @@
 package modelo.servicios;
 
+import evento.EventoSubject;
+import evento.TipoEvento;
+
 import modelo.dto.FiltroBusquedaDTO;
 import modelo.dto.PaginaDTO;
 import modelo.dto.ProveedorDTO;
@@ -42,20 +45,33 @@ public class ProveedorService {
             return errores;
         }
         p.setUsuarioRegistro(sesion.getNombreUsuario());
-        if (p.isNuevo()) {
+        boolean nuevo = p.isNuevo();
+        if (nuevo) {
             p.setIdProveedor(proveedorRepository.insertar(p));
         } else if (!proveedorRepository.actualizar(p)) {
             errores.put("general", "El proveedor ya no existe. Actualiza la lista e inténtalo de nuevo.");
+            return errores;
         }
+        EventoSubject.getInstancia().publicar(nuevo ? TipoEvento.PROVEEDOR_REGISTRADO : TipoEvento.PROVEEDOR_EDITADO,
+                sesion, p.getIdProveedor(), p.getRazonSocial() + " · RUC " + p.getRuc());
         return errores;
     }
 
-    public String desactivar(int id) {
-        return proveedorRepository.eliminar(id) ? null : "El proveedor no existe.";
+    public String desactivar(int id, Usuario sesion) {
+        return cambiarEstado(id, sesion, false);
     }
 
-    public String reactivar(int id) {
-        return proveedorRepository.reactivar(id) ? null : "El proveedor no existe.";
+    public String reactivar(int id, Usuario sesion) {
+        return cambiarEstado(id, sesion, true);
+    }
+
+    private String cambiarEstado(int id, Usuario sesion, boolean activar) {
+        if (!(activar ? proveedorRepository.reactivar(id) : proveedorRepository.eliminar(id))) {
+            return "El proveedor no existe.";
+        }
+        EventoSubject.getInstancia().publicar(activar ? TipoEvento.PROVEEDOR_REACTIVADO : TipoEvento.PROVEEDOR_DESACTIVADO,
+                sesion, id, proveedorRepository.buscarPorId(id).map(ProveedorDTO::getRazonSocial).orElse("#" + id));
+        return null;
     }
 
     private static void normalizar(ProveedorDTO p) {

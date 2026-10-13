@@ -11,6 +11,9 @@
     List<OpcionDTO> sexos = (List<OpcionDTO>) request.getAttribute("sexos");
     boolean nuevo = p.isNuevo();
     String urlLista = ctx + "/recepcion/pacientes";
+    boolean puedeIdentidad = Boolean.TRUE.equals(request.getAttribute("puedeCorregirIdentidad"));
+    // Recepción no corrige DNI ni nombres de un paciente ya registrado (solo el administrador)
+    String soloLectura = (!nuevo && !puedeIdentidad) ? "readonly" : "";
 %>
 
 <form method="POST" action="<%= urlLista %>" id="formPaciente" data-form-crud novalidate>
@@ -24,22 +27,25 @@
             <div class="card card-outline card-primary">
                 <div class="card-header"><h3 class="card-title"><i class="fas fa-id-card mr-2"></i>Datos del paciente</h3></div>
                 <div class="card-body">
+                    <% if (!soloLectura.isEmpty()) { %>
+                    <p class="small text-muted"><i class="fas fa-lock mr-1"></i>El DNI y el nombre solo los corrige el administrador (quedan registrados en la auditoría). Puedes actualizar el contacto, la cobertura y las observaciones.</p>
+                    <% } %>
                     <div class="form-row">
                         <div class="form-group col-md-4">
                             <label for="dni">DNI <span class="text-danger" aria-hidden="true">*</span></label>
-                            <input type="text" class="form-control <%= invalido(errores, "dni") %>" id="dni" name="dni" data-solo-numeros
+                            <input type="text" class="form-control <%= invalido(errores, "dni") %>" id="dni" name="dni" data-solo-numeros <%= soloLectura %>
                                    maxlength="8" inputmode="numeric" required value="<%= EscapeHtml.texto(p.getDni()) %>" placeholder="8 números" <%= nuevo && p.getDni().isEmpty() ? "autofocus" : "" %>>
                             <%= error(errores, "dni") %>
                         </div>
                         <div class="form-group col-md-4">
                             <label for="nombres">Nombres <span class="text-danger" aria-hidden="true">*</span></label>
-                            <input type="text" class="form-control <%= invalido(errores, "nombres") %>" id="nombres" name="nombres"
+                            <input type="text" class="form-control <%= invalido(errores, "nombres") %>" id="nombres" name="nombres" <%= soloLectura %>
                                    maxlength="100" required autocomplete="off" value="<%= EscapeHtml.texto(p.getNombres()) %>" placeholder="Ej: Ana María" <%= nuevo && !p.getDni().isEmpty() ? "autofocus" : "" %>>
                             <%= error(errores, "nombres") %>
                         </div>
                         <div class="form-group col-md-4">
                             <label for="apellidos">Apellidos <span class="text-danger" aria-hidden="true">*</span></label>
-                            <input type="text" class="form-control <%= invalido(errores, "apellidos") %>" id="apellidos" name="apellidos"
+                            <input type="text" class="form-control <%= invalido(errores, "apellidos") %>" id="apellidos" name="apellidos" <%= soloLectura %>
                                    maxlength="100" required autocomplete="off" value="<%= EscapeHtml.texto(p.getApellidos()) %>" placeholder="Ej: Torres Quispe">
                             <%= error(errores, "apellidos") %>
                         </div>
@@ -123,6 +129,7 @@
                     <p class="small text-muted mb-2">Registrado el <%= FormatoVista.fecha(p.getFechaCreacion()) %><% if (p.getUsuarioRegistro() != null) { %> por <%= EscapeHtml.texto(p.getUsuarioRegistro()) %><% } %></p>
                     <p class="small mb-3"><% if (p.isTieneCuenta()) { %><i class="fas fa-globe text-success mr-1"></i>Tiene cuenta en el portal del paciente.
                        <% } else { %><i class="fas fa-info-circle text-muted mr-1"></i>Aún no tiene cuenta: puede crearla en «Crear cuenta» con su DNI.<% } %></p>
+                    <% if (puedeIdentidad) { %>
                     <span class="d-block mb-1 font-weight-bold">Estado</span>
                     <div class="custom-control custom-radio custom-control-inline">
                         <input type="radio" id="estadoActivo" name="estado" value="Activo" class="custom-control-input" <%= marcado(p.isActivo()) %>>
@@ -132,9 +139,13 @@
                         <input type="radio" id="estadoInactivo" name="estado" value="Inactivo" class="custom-control-input" <%= marcado(!p.isActivo()) %>>
                         <label class="custom-control-label font-weight-normal" for="estadoInactivo">Desactivado</label>
                     </div>
+                    <% } else { %>
+                    <p class="small mb-0">Estado: <strong><%= p.isActivo() ? "Activo" : "Desactivado" %></strong></p>
+                    <% } %>
                     <% } %>
                 </div>
             </div>
+            <%@ include file="/WEB-INF/vistas/comun/historial.jspf" %>
             <div class="callout callout-info small">
                 <i class="fas fa-user-shield mr-1"></i> Los datos personales se tratan según la Ley N.º 29733 de Protección de Datos Personales.
             </div>

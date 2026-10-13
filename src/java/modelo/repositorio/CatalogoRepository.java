@@ -20,7 +20,7 @@ public interface CatalogoRepository {
 
     List<OpcionDTO> listarMarcas();
 
-    /** extra = abreviatura (UND, CJA...). */
+    /** nombre = "Unidad (UND)"; extra = a qué tipo aplica (SERVICIO o PRODUCTO). */
     List<OpcionDTO> listarUnidadesMedida();
 
     List<OpcionDTO> listarSexos();

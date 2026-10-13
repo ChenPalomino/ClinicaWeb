@@ -77,7 +77,7 @@ public class AutenticacionFacade {
                     usuario.getIdUsuario(), true);
         }
         usuarioRepository.actualizarIntentos(usuario.getIdUsuario(), nuevosIntentos);
-        throw new AutenticacionException(Motivo.CREDENCIALES_INVALIDAS, nuevosIntentos, 0);
+        throw new AutenticacionException(Motivo.CREDENCIALES_INVALIDAS, nuevosIntentos, 0, usuario.getIdUsuario(), false);
     }
 
     /** Minutos que faltan para el desbloqueo automático de 24 horas. */

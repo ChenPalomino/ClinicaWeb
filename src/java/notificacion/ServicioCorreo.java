@@ -15,4 +15,13 @@ public interface ServicioCorreo {
      * @return true si el proveedor aceptó el correo.
      */
     boolean enviar(String destinatario, String nombreDestinatario, String asunto, String html);
+
+    /**
+     * Igual que enviar(), pero con el detalle de lo que respondió el proveedor
+     * (para la página de diagnóstico). Los adaptadores sencillos usan esta versión.
+     */
+    default ResultadoEnvio enviarDetallado(String destinatario, String nombreDestinatario, String asunto, String html) {
+        boolean ok = enviar(destinatario, nombreDestinatario, asunto, html);
+        return new ResultadoEnvio(ok, 0, ok ? "Enviado." : "No se pudo enviar.");
+    }
 }

@@ -45,7 +45,7 @@ public class ProductoServicioController extends HttpServlet {
                 }
                 // Unidad sugerida: "Servicio" para servicios, "Unidad" para productos
                 String unidad = nuevo.isProducto() ? "Unidad" : "Servicio";
-                servicio.unidades().stream().filter(u -> u.getNombre().equals(unidad)).findFirst()
+                servicio.unidades().stream().filter(u -> u.getNombre().startsWith(unidad + " ")).findFirst()
                         .ifPresent(u -> nuevo.setIdUnidadMedida(u.getId()));
                 mostrarFormulario(request, response, servicio, nuevo, Map.of());
                 return;
@@ -101,11 +101,11 @@ public class ProductoServicioController extends HttpServlet {
                     return;
                 }
                 case "desactivar":
-                    ControladorUtil.resultado(session, servicio.desactivar(id),
+                    ControladorUtil.resultado(session, servicio.desactivar(id, sesion),
                             "Desactivado: ya no se podrá cobrar en caja. Puedes reactivarlo cuando quieras.");
                     break;
                 case "reactivar":
-                    ControladorUtil.resultado(session, servicio.reactivar(id), "Reactivado: ya se puede cobrar en caja.");
+                    ControladorUtil.resultado(session, servicio.reactivar(id, sesion), "Reactivado: ya se puede cobrar en caja.");
                     break;
                 default:
                     MensajeFlash.error(session, "Acción no reconocida.");
@@ -126,6 +126,14 @@ public class ProductoServicioController extends HttpServlet {
         request.setAttribute("marcas", servicio.marcas());
         request.setAttribute("unidades", servicio.unidades());
         request.setAttribute("proveedores", servicio.proveedores());
+        if (!p.isNuevo()) {
+            request.setAttribute("historial", new modelo.servicios.AuditoriaService().historial("TARIFARIO", p.getIdProductoServicio()));
+        }
+        if (p.isNuevo()) {
+            // Códigos sugeridos de cada tipo: la vista cambia el código si se cambia el tipo
+            request.setAttribute("codigoServicio", servicio.siguienteCodigo(ProductoServicioDTO.SERVICIO));
+            request.setAttribute("codigoProducto", servicio.siguienteCodigo(ProductoServicioDTO.PRODUCTO));
+        }
         String que = p.isProducto() ? "producto" : "servicio";
         request.setAttribute("tituloPagina", p.isNuevo() ? "Nuevo " + que : "Editar " + que);
         request.getRequestDispatcher(VISTA_FORM).forward(request, response);

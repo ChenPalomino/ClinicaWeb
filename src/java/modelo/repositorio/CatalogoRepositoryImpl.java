@@ -34,7 +34,8 @@ public class CatalogoRepositoryImpl implements CatalogoRepository {
 
     @Override
     public List<OpcionDTO> listarUnidadesMedida() {
-        return listar("SELECT id_unidad_medida, nombre, abreviatura FROM tm_unidad_medida WHERE estado = 'Activo' ORDER BY id_unidad_medida");
+        return listar("SELECT id_unidad_medida, nombre || ' (' || abreviatura || ')', aplica_a FROM tm_unidad_medida "
+                    + "WHERE estado = 'Activo' ORDER BY aplica_a DESC, id_unidad_medida");
     }
 
     @Override

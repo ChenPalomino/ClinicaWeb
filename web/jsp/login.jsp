@@ -68,6 +68,12 @@
             <div class="alert-error">Completa tu <%= esPersonal ? "usuario" : "DNI" %> y tu contraseña.</div>
         <% } else if ("sesion".equals(error)) { %>
             <div class="alert-info">Tu sesión terminó por inactividad o aún no has ingresado. Vuelve a iniciar sesión.</div>
+        <% } else if ("bloqueada".equals(error)) { %>
+            <div class="alert-error">Un administrador bloqueó tu cuenta y se cerró tu sesión. Si crees que es un error, comunícate con la clínica.</div>
+        <% } else if ("desactivada".equals(error)) { %>
+            <div class="alert-error">Tu cuenta fue desactivada y se cerró tu sesión. Comunícate con la clínica si necesitas acceso.</div>
+        <% } else if ("rol".equals(error)) { %>
+            <div class="alert-info">Tus permisos cambiaron. Vuelve a iniciar sesión para ver tu nuevo menú.</div>
         <% } else if ("enlace".equals(error)) { %>
             <div class="alert-error">El enlace no es válido o ya venció. Si necesitas ayuda, acércate a recepción.</div>
         <% } else if ("sistema".equals(error)) { %>
@@ -107,6 +113,7 @@
         </p>
     </div>
 </div>
+<script>try { localStorage.setItem("clinica.sesion.activa", "<%= session.getAttribute("usuarioLogueado") == null ? "0" : ((modelo.entidades.Usuario) session.getAttribute("usuarioLogueado")).getIdUsuario() %>"); } catch (e) {}</script>
 <script src="${pageContext.request.contextPath}/js/Validaciones.js?v=<%= configuracion.VersionAplicacion.RECURSOS %>"></script>
 </body>
 </html>

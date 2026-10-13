@@ -71,7 +71,10 @@ public class RegistroService {
 
         if (!usuarioRepository.registrarPaciente(nuevoUsuario, dto)) {
             errores.put("general", "No se pudo completar el registro. Inténtalo nuevamente.");
+            return errores;
         }
+        evento.EventoSubject.getInstancia().publicar(new evento.EventoSistema(evento.TipoEvento.PACIENTE_AUTORREGISTRO,
+                null, dto.getDni(), null, "DNI " + dto.getDni()));
         return errores;
     }
 

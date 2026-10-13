@@ -144,6 +144,8 @@ public class RecuperacionService {
         }
 
         usuarioRepository.cambiarContrasenaYDesbloquear(idUsuario, EncriptadorPassword.encriptar(nueva));
+        evento.EventoSubject.getInstancia().publicar(new evento.EventoSistema(evento.TipoEvento.CONTRASENA_CAMBIADA,
+                idUsuario, null, idUsuario, "Recuperada con el código enviado al correo"));
 
         notificarCambioContrasena(idUsuario, urlBase);
         return errores;

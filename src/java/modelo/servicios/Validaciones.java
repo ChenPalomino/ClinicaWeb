@@ -16,6 +16,7 @@ public final class Validaciones {
     private static final Pattern CELULAR = Pattern.compile("^9\\d{8}$");
     private static final Pattern TELEFONO = Pattern.compile("^\\d{7,9}$");
     private static final Pattern RUC = Pattern.compile("^(10|15|17|20)\\d{9}$");
+    private static final int EDAD_MAXIMA = 120;
     private static final int[] PESOS_RUC = {5, 4, 3, 2, 7, 6, 5, 4, 3, 2};
 
     private Validaciones() {
@@ -43,6 +44,21 @@ public final class Validaciones {
         int resto = 11 - (suma % 11);
         int verificador = resto == 10 ? 0 : (resto == 11 ? 1 : resto);
         return verificador == v.charAt(10) - '0';
+    }
+
+    /** null si la fecha es válida (o está vacía); si no, el mensaje de error. */
+    public static String fechaNacimiento(java.time.LocalDate fecha) {
+        if (fecha == null) {
+            return null;
+        }
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        if (fecha.isAfter(hoy)) {
+            return "La fecha de nacimiento no puede ser futura.";
+        }
+        if (fecha.isBefore(hoy.minusYears(EDAD_MAXIMA))) {
+            return "Revisa el año: la edad no puede pasar de " + EDAD_MAXIMA + " años.";
+        }
+        return null;
     }
 
     /** Quita espacios repetidos y de los extremos. */

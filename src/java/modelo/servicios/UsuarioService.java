@@ -1,5 +1,8 @@
 package modelo.servicios;
 
+import evento.EventoSubject;
+import evento.TipoEvento;
+
 import modelo.dto.EstadisticasUsuariosDTO;
 import modelo.dto.FiltroUsuarioDTO;
 import modelo.dto.PaginaDTO;
@@ -131,11 +134,26 @@ public class UsuarioService {
         u.setUsuarioRegistro(admin.getNombreUsuario());
         u.setContrasenaHash(cambiaPassword ? EncriptadorPassword.encriptar(password) : null);
 
+        String rol = listarRoles().stream().filter(r -> r.getIdRol() == u.getIdRol()).map(Rol::getNombre).findFirst().orElse("");
         if (u.isNuevo()) {
             u.setIdUsuario(usuarioRepository.insertar(u));
-        } else if (!usuarioRepository.actualizar(u)) {
-            errores.put("general", "El usuario ya no existe. Actualiza la lista e inténtalo de nuevo.");
+            EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_CREADO, admin, u.getIdUsuario(),
+                    "@" + u.getNombreUsuario() + " · " + rol);
+            return errores;
         }
+        Optional<UsuarioDTO> antes = usuarioRepository.buscarPorId(u.getIdUsuario());
+        if (!usuarioRepository.actualizar(u)) {
+            errores.put("general", "El usuario ya no existe. Actualiza la lista e inténtalo de nuevo.");
+            return errores;
+        }
+        StringBuilder cambios = new StringBuilder("@" + u.getNombreUsuario());
+        antes.ifPresent(a -> {
+            if (a.getIdRol() != u.getIdRol()) cambios.append(" · rol: ").append(a.getNombreRol()).append(" → ").append(rol);
+            if (!a.getEstado().equals(u.getEstado())) cambios.append(" · estado: ").append(a.getEstado()).append(" → ").append(u.getEstado());
+            if (!a.getDni().equals(u.getDni())) cambios.append(" · DNI: ").append(a.getDni()).append(" → ").append(u.getDni());
+        });
+        if (cambiaPassword) cambios.append(" · contraseña restablecida");
+        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_EDITADO, admin, u.getIdUsuario(), cambios.toString());
         return errores;
     }
 
@@ -145,15 +163,24 @@ public class UsuarioService {
         if (idUsuario == admin.getIdUsuario()) {
             return "No puedes desactivar tu propia cuenta.";
         }
-        return usuarioRepository.eliminar(idUsuario) ? null : "El usuario no existe.";
+        if (!usuarioRepository.eliminar(idUsuario)) {
+            return "El usuario no existe.";
+        }
+        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_DESACTIVADO, admin, idUsuario, etiqueta(idUsuario));
+        return null;
     }
 
-    public String reactivar(int idUsuario) {
-        return usuarioRepository.reactivar(idUsuario) ? null : "El usuario no existe.";
+    public String reactivar(int idUsuario, Usuario admin) {
+        if (!usuarioRepository.reactivar(idUsuario)) {
+            return "El usuario no existe.";
+        }
+        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_REACTIVADO, admin, idUsuario, etiqueta(idUsuario));
+        return null;
     }
 
-    public String desbloquear(int idUsuario) {
+    public String desbloquear(int idUsuario, Usuario admin) {
         usuarioRepository.desbloquearUsuario(idUsuario);
+        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_DESBLOQUEADO, admin, idUsuario, etiqueta(idUsuario));
         return null;
     }
 
@@ -162,7 +189,13 @@ public class UsuarioService {
             return "No puedes bloquear tu propia cuenta.";
         }
         usuarioRepository.bloquearPorAdministrador(idUsuario);
+        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_BLOQUEADO, admin, idUsuario, etiqueta(idUsuario));
         return null;
+    }
+
+    /** "@usuario" para el detalle de la auditoría. */
+    private String etiqueta(int idUsuario) {
+        return usuarioRepository.buscarPorId(idUsuario).map(u -> "@" + u.getNombreUsuario()).orElse("#" + idUsuario);
     }
 
     // ------------------------------------------------------------ auxiliares

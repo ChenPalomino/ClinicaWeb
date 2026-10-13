@@ -60,6 +60,11 @@ public class AutenticacionFilter implements Filter {
             return;
         }
 
+        // ¿La cuenta sigue activa y la pestaña corresponde a la sesión? (no aplica a las fotos)
+        if (!ruta.equals("/foto") && !SesionVigente.revisar(request, response)) {
+            return;
+        }
+
         // Página privada: no guardar en caché
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         response.setHeader("Pragma", "no-cache");

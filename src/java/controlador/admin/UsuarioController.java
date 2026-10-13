@@ -117,10 +117,10 @@ public class UsuarioController extends HttpServlet {
                     resultado(session, servicio.desactivar(id, admin), "Usuario desactivado. Ya no podrá iniciar sesión.");
                     break;
                 case "reactivar":
-                    resultado(session, servicio.reactivar(id), "Usuario reactivado. Ya puede iniciar sesión.");
+                    resultado(session, servicio.reactivar(id, admin), "Usuario reactivado. Ya puede iniciar sesión.");
                     break;
                 case "desbloquear":
-                    resultado(session, servicio.desbloquear(id), "Cuenta desbloqueada. Sus intentos fallidos volvieron a cero.");
+                    resultado(session, servicio.desbloquear(id, admin), "Cuenta desbloqueada. Sus intentos fallidos volvieron a cero.");
                     break;
                 case "bloquear":
                     resultado(session, servicio.bloquear(id, admin), "Cuenta bloqueada. Solo un administrador podrá desbloquearla.");

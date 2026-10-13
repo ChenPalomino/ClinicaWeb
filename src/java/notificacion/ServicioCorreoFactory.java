@@ -33,6 +33,12 @@ public final class ServicioCorreoFactory {
         return new ConsolaCorreoAdapter();
     }
 
+    /** Qué variable de entorno falta para enviar correos reales ("" si no falta ninguna). */
+    public static String variablesFaltantes() {
+        return (limpiar(System.getenv("BREVO_API_KEY")) == null ? "BREVO_API_KEY " : "")
+                + (limpiar(System.getenv("CORREO_REMITENTE")) == null ? "CORREO_REMITENTE" : "");
+    }
+
     /** Quita espacios y comillas que a veces se cuelan al copiar y pegar. */
     private static String limpiar(String valor) {
         if (valor == null) {

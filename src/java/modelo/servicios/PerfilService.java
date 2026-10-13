@@ -4,6 +4,9 @@ import modelo.dto.ContactoDTO;
 import modelo.dto.FotoDTO;
 import modelo.dto.PerfilDTO;
 import modelo.entidades.Usuario;
+import modelo.dto.OpcionDTO;
+import modelo.repositorio.CatalogoRepository;
+import modelo.repositorio.CatalogoRepositoryImpl;
 import modelo.repositorio.PerfilRepository;
 import modelo.repositorio.PerfilRepositoryImpl;
 import modelo.repositorio.UsuarioRepository;
@@ -13,6 +16,7 @@ import seguridad.PoliticaPassword;
 
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -32,14 +36,22 @@ public class PerfilService {
 
     private final PerfilRepository perfilRepository;
     private final UsuarioRepository usuarioRepository;
+    private final CatalogoRepository catalogoRepository;
 
     public PerfilService() {
-        this(new PerfilRepositoryImpl(), new UsuarioRepositoryImpl());
+        this(new PerfilRepositoryImpl(), new UsuarioRepositoryImpl(), new CatalogoRepositoryImpl());
     }
 
-    public PerfilService(PerfilRepository perfilRepository, UsuarioRepository usuarioRepository) {
+    public PerfilService(PerfilRepository perfilRepository, UsuarioRepository usuarioRepository,
+                         CatalogoRepository catalogoRepository) {
         this.perfilRepository = perfilRepository;
         this.usuarioRepository = usuarioRepository;
+        this.catalogoRepository = catalogoRepository;
+    }
+
+    /** Opciones de la lista "Sexo" del formulario. */
+    public List<OpcionDTO> sexos() {
+        return catalogoRepository.listarSexos();
     }
 
     public Optional<PerfilDTO> obtener(int idUsuario) {
@@ -78,6 +90,8 @@ public class PerfilService {
         if (!form.getCelular().isEmpty() && !CELULAR.matcher(form.getCelular()).matches()) {
             errores.put("celular", "El celular debe tener 9 números y empezar con 9.");
         }
+        String errorFecha = Validaciones.fechaNacimiento(form.getFechaNacimiento());
+        if (errorFecha != null) errores.put("fechaNacimiento", errorFecha);
         if (form.getDescripcion().length() > MAX_DESCRIPCION) {
             errores.put("descripcion", "Máximo " + MAX_DESCRIPCION + " caracteres.");
         }
@@ -93,6 +107,8 @@ public class PerfilService {
         }
 
         perfilRepository.actualizarDatos(form, sesion.getNombreUsuario());
+        evento.EventoSubject.getInstancia().publicar(evento.TipoEvento.PERFIL_EDITADO, sesion, sesion.getIdUsuario(),
+                actual.getCorreo().equalsIgnoreCase(form.getCorreo()) ? null : "Cambió su correo");
 
         // Seguridad: si cambió el correo, se avisa al correo ANTERIOR
         if (!actual.getCorreo().isBlank() && !actual.getCorreo().equalsIgnoreCase(form.getCorreo())) {
@@ -121,6 +137,8 @@ public class PerfilService {
             return errores;
         }
         usuarioRepository.actualizarContrasena(sesion.getIdUsuario(), EncriptadorPassword.encriptar(nueva));
+        evento.EventoSubject.getInstancia().publicar(evento.TipoEvento.CONTRASENA_CAMBIADA, sesion, sesion.getIdUsuario(),
+                "Desde Mi perfil");
         new RecuperacionService().notificarCambioContrasena(sesion.getIdUsuario(), urlBase);
         return errores;
     }

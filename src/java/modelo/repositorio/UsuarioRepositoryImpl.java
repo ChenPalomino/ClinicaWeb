@@ -8,6 +8,7 @@ import modelo.dto.PaginaDTO;
 import modelo.dto.RegistroPacienteDTO;
 import modelo.dto.TokenRecuperacionDTO;
 import modelo.dto.UsuarioDTO;
+import modelo.entidades.Rol;
 import modelo.entidades.Usuario;
 
 import java.sql.Connection;
@@ -73,6 +74,25 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
             }
         } catch (SQLException e) {
             throw new RepositorioException("Error al buscar usuario", e);
+        }
+    }
+
+    @Override
+    public Optional<UsuarioDTO> buscarEstadoAcceso(int idUsuario) {
+        try {
+            return RepositorioUtil.unaFila(conexion(),
+                    "SELECT id_usuario, nombre_usuario, id_rol, estado, bloqueado FROM tt_usuario WHERE id_usuario = ?",
+                    idUsuario, rs -> {
+                        UsuarioDTO u = new UsuarioDTO();
+                        u.setIdUsuario(rs.getInt("id_usuario"));
+                        u.setNombreUsuario(rs.getString("nombre_usuario"));
+                        u.setIdRol(rs.getInt("id_rol"));
+                        u.setEstado(rs.getString("estado"));
+                        u.setBloqueado(rs.getBoolean("bloqueado"));
+                        return u;
+                    });
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al revisar la cuenta", e);
         }
     }
 
@@ -514,7 +534,7 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
                 idDatos, u.getCorreo(), u.getUsuarioRegistro());
         RepositorioUtil.guardarContacto(cn, "tt_telefono", "id_telefono", "numero_telefono", "tipo_telefono", "Móvil",
                 idDatos, u.getCelular(), u.getUsuarioRegistro());
-        if (u.getIdRol() == modelo.entidades.Rol.PACIENTE) {
+        if (u.getIdRol() == Rol.PACIENTE) {
             // Una cuenta de paciente siempre tiene su ficha (N.º de historia, cobertura)
             try (PreparedStatement stmt = cn.prepareStatement(
                     "INSERT INTO tt_paciente (id_datos_personales, usuario_registro) SELECT ?, ? "
@@ -562,6 +582,24 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
                 + "ON d.id_datos_personales = c.id_datos_personales "
                 + "WHERE LOWER(c.correo_electronico) = LOWER(?) AND COALESCE(d.id_usuario, 0) <> ?",
                 correo, idExcluir);
+    }
+
+    @Override
+    public List<String> usuariosConCorreoDePrueba() {
+        List<String> usuarios = new ArrayList<>();
+        try (PreparedStatement stmt = conexion().prepareStatement(
+                "SELECT u.nombre_usuario FROM tt_usuario u "
+              + "JOIN tt_datos_personales d ON d.id_usuario = u.id_usuario "
+              + "JOIN tt_correo c ON c.id_datos_personales = d.id_datos_personales AND c.estado = 'Activo' "
+              + "WHERE u.estado = 'Activo' AND LOWER(c.correo_electronico) LIKE '%@clinica.demo' ORDER BY u.id_usuario");
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                usuarios.add(rs.getString(1));
+            }
+            return usuarios;
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al revisar los correos", e);
+        }
     }
 
     @Override

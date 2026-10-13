@@ -18,6 +18,7 @@
                 + (estadoSel.isEmpty() ? "" : "&estado=" + estadoSel);
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
     boolean buscaDni = q.matches("\\d{8}");
+    boolean puedeDesactivar = Boolean.TRUE.equals(request.getAttribute("puedeDesactivar"));
 %>
 
 <div class="card">
@@ -126,7 +127,8 @@
                         <% } else { %><span class="badge badge-secondary"><i class="fas fa-ban mr-1"></i>Desactivado</span><% } %></td>
                     <td class="text-right text-nowrap">
                         <a href="<%= urlLista %>?accion=editar&id=<%= p.getIdPaciente() %>" class="btn btn-sm btn-outline-primary" title="Editar" aria-label="Editar a <%= nombre %>"><i class="fas fa-pen"></i></a>
-                        <% if (p.isActivo()) { %>
+                        <% if (!puedeDesactivar) { %>
+                        <% } else if (p.isActivo()) { %>
                         <button type="button" class="btn btn-sm btn-outline-danger" title="Desactivar" aria-label="Desactivar a <%= nombre %>"
                                 data-confirmar="desactivar" data-id="<%= p.getIdPaciente() %>" data-nombre="<%= nombre %>" data-color="btn-danger"
                                 data-titulo="Desactivar paciente" data-boton="Sí, desactivar"

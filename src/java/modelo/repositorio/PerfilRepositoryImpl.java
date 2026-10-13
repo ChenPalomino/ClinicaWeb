@@ -20,7 +20,8 @@ public class PerfilRepositoryImpl implements PerfilRepository {
     @Override
     public Optional<PerfilDTO> obtener(int idUsuario) {
         String sql = "SELECT u.id_usuario, u.nombre_usuario, u.id_rol, u.preferencia_tema, "
-                   + "       d.nombres, d.apellidos, d.dni, d.descripcion, c.correo_electronico, t.numero_telefono, "
+                   + "       d.nombres, d.apellidos, d.dni, d.descripcion, d.id_sexo, d.fecha_nacimiento, "
+                   + "       c.correo_electronico, t.numero_telefono, pac.numero_historia, cb.nombre AS cobertura, "
                    + "       (f.id_datos_personales IS NOT NULL) AS tiene_foto, "
                    + "       COALESCE(EXTRACT(EPOCH FROM f.fecha_actualizacion)::bigint, 0) AS foto_version "
                    + "FROM tt_usuario u "
@@ -32,6 +33,8 @@ public class PerfilRepositoryImpl implements PerfilRepository {
                    + "                   WHERE id_datos_personales = d.id_datos_personales AND estado = 'Activo' "
                    + "                   ORDER BY id_telefono LIMIT 1) t ON TRUE "
                    + "LEFT JOIN tt_foto_perfil f ON f.id_datos_personales = d.id_datos_personales "
+                   + "LEFT JOIN tt_paciente pac ON pac.id_datos_personales = d.id_datos_personales "
+                   + "LEFT JOIN tm_cobertura cb ON cb.id_cobertura = pac.id_cobertura "
                    + "WHERE u.id_usuario = ?";
         try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
             stmt.setInt(1, idUsuario);
@@ -52,6 +55,10 @@ public class PerfilRepositoryImpl implements PerfilRepository {
                 p.setTieneFoto(rs.getBoolean("tiene_foto"));
                 p.setFotoVersion(rs.getLong("foto_version"));
                 p.setTema(rs.getString("preferencia_tema"));
+                p.setIdSexo(RepositorioUtil.enteroONulo(rs, "id_sexo"));
+                p.setFechaNacimiento(RepositorioUtil.fechaONula(rs, "fecha_nacimiento"));
+                p.setNumeroHistoria(rs.getString("numero_historia"));
+                p.setNombreCobertura(rs.getString("cobertura"));
                 return Optional.of(p);
             }
         } catch (SQLException e) {
@@ -65,17 +72,21 @@ public class PerfilRepositoryImpl implements PerfilRepository {
             try {
                 int idDatos;
                 try (PreparedStatement stmt = cn.prepareStatement(
-                        "INSERT INTO tt_datos_personales (id_usuario, nombres, apellidos, dni, descripcion, usuario_registro) "
-                      + "VALUES (?, ?, ?, ?, ?, ?) "
+                        "INSERT INTO tt_datos_personales (id_usuario, nombres, apellidos, dni, descripcion, id_sexo, "
+                      + "                                 fecha_nacimiento, usuario_registro) "
+                      + "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                       + "ON CONFLICT (id_usuario) DO UPDATE SET nombres = EXCLUDED.nombres, apellidos = EXCLUDED.apellidos, "
-                      + "    dni = EXCLUDED.dni, descripcion = EXCLUDED.descripcion "
+                      + "    dni = EXCLUDED.dni, descripcion = EXCLUDED.descripcion, id_sexo = EXCLUDED.id_sexo, "
+                      + "    fecha_nacimiento = EXCLUDED.fecha_nacimiento "
                       + "RETURNING id_datos_personales")) {
                     stmt.setInt(1, p.getIdUsuario());
                     stmt.setString(2, p.getNombres());
                     stmt.setString(3, p.getApellidos());
                     stmt.setString(4, p.getDni());
                     stmt.setString(5, p.getDescripcion().isBlank() ? null : p.getDescripcion());
-                    stmt.setString(6, usuarioRegistro);
+                    RepositorioUtil.enteroONulo(stmt, 6, p.getIdSexo());
+                    RepositorioUtil.fechaONula(stmt, 7, p.getFechaNacimiento());
+                    stmt.setString(8, usuarioRegistro);
                     try (ResultSet rs = stmt.executeQuery()) {
                         rs.next();
                         idDatos = rs.getInt(1);

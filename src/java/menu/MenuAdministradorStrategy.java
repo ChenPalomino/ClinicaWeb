@@ -20,7 +20,8 @@ public class MenuAdministradorStrategy implements MenuStrategy {
         return List.of(
                 new OpcionMenu("PRINCIPAL", "Inicio", "fas fa-home", "/panel", "inicio", true),
                 new OpcionMenu("ADMINISTRACIÓN", "Usuarios", "fas fa-users-cog", "/admin/usuarios", "usuarios", true),
-                OpcionMenu.proximamente("ADMINISTRACIÓN", "Auditoría", "fas fa-clipboard-list"),
+                new OpcionMenu("ADMINISTRACIÓN", "Correo", "fas fa-envelope-open-text", "/admin/correo", "correo", true),
+                new OpcionMenu("ADMINISTRACIÓN", "Auditoría", "fas fa-clipboard-list", "/admin/auditoria", "auditoria", true),
                 OpcionMenu.proximamente("ADMINISTRACIÓN", "Respaldos", "fas fa-database"),
                 new OpcionMenu("CLÍNICA", "Pacientes", "fas fa-user-injured", "/recepcion/pacientes", "pacientes", true),
                 new OpcionMenu("CLÍNICA", "Servicios y productos", "fas fa-notes-medical", "/admin/servicios", "servicios", true),

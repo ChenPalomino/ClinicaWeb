@@ -1,5 +1,8 @@
 package modelo.servicios;
 
+import evento.EventoSubject;
+import evento.TipoEvento;
+
 import modelo.dto.FiltroBusquedaDTO;
 import modelo.dto.OpcionDTO;
 import modelo.dto.PaginaDTO;
@@ -24,6 +27,7 @@ import java.util.regex.Pattern;
 public class ProductoServicioService {
 
     private static final Pattern CODIGO = Pattern.compile("^[A-Z0-9-]{3,20}$");
+    private static final Pattern CODIGO_AUTOMATICO = Pattern.compile("^(SRV|PRD)-\\d{4}$");
     private static final BigDecimal PRECIO_MAXIMO = new BigDecimal("99999.99");
     private static final int STOCK_MAXIMO = 1_000_000;
 
@@ -65,18 +69,43 @@ public class ProductoServicioService {
         p.setUsuarioRegistro(sesion.getNombreUsuario());
         if (p.isNuevo()) {
             p.setIdProductoServicio(repositorio.insertar(p));
-        } else if (!repositorio.actualizar(p)) {
-            errores.put("general", "El registro ya no existe. Actualiza la lista e inténtalo de nuevo.");
+            EventoSubject.getInstancia().publicar(TipoEvento.ITEM_REGISTRADO, sesion, p.getIdProductoServicio(),
+                    p.getCodigo() + " " + p.getNombre() + " · S/ " + p.getPrecio());
+            return errores;
         }
+        Optional<ProductoServicioDTO> antes = repositorio.buscarPorId(p.getIdProductoServicio());
+        if (!repositorio.actualizar(p)) {
+            errores.put("general", "El registro ya no existe. Actualiza la lista e inténtalo de nuevo.");
+            return errores;
+        }
+        StringBuilder c = new StringBuilder(p.getCodigo() + " " + p.getNombre());
+        antes.ifPresent(a -> {
+            if (a.getPrecio() != null && a.getPrecio().compareTo(p.getPrecio()) != 0) {
+                c.append(" · precio: S/ ").append(a.getPrecio()).append(" → S/ ").append(p.getPrecio());   // cambios de tarifa
+            }
+            if (p.isProducto() && !java.util.Objects.equals(a.getStock(), p.getStock())) {
+                c.append(" · stock: ").append(a.getStock()).append(" → ").append(p.getStock());
+            }
+        });
+        EventoSubject.getInstancia().publicar(TipoEvento.ITEM_EDITADO, sesion, p.getIdProductoServicio(), c.toString());
         return errores;
     }
 
-    public String desactivar(int id) {
-        return repositorio.eliminar(id) ? null : "El servicio o producto no existe.";
+    public String desactivar(int id, Usuario sesion) {
+        return cambiarEstado(id, sesion, false);
     }
 
-    public String reactivar(int id) {
-        return repositorio.reactivar(id) ? null : "El servicio o producto no existe.";
+    public String reactivar(int id, Usuario sesion) {
+        return cambiarEstado(id, sesion, true);
+    }
+
+    private String cambiarEstado(int id, Usuario sesion, boolean activar) {
+        if (!(activar ? repositorio.reactivar(id) : repositorio.eliminar(id))) {
+            return "El servicio o producto no existe.";
+        }
+        EventoSubject.getInstancia().publicar(activar ? TipoEvento.ITEM_REACTIVADO : TipoEvento.ITEM_DESACTIVADO, sesion, id,
+                repositorio.buscarPorId(id).map(x -> x.getCodigo() + " " + x.getNombre()).orElse("#" + id));
+        return null;
     }
 
     private static void normalizar(ProductoServicioDTO p) {
@@ -112,8 +141,17 @@ public class ProductoServicioService {
             errores.put("idCategoria", "La categoría «" + categoria.get().getNombre() + "» no corresponde a un "
                     + (p.isProducto() ? "producto" : "servicio") + ".");
         }
-        if (buscar(catalogoRepository.listarUnidadesMedida(), p.getIdUnidadMedida()).isEmpty()) {
+        Optional<OpcionDTO> unidad = buscar(catalogoRepository.listarUnidadesMedida(), p.getIdUnidadMedida());
+        if (unidad.isEmpty()) {
             errores.put("idUnidadMedida", "Elige la unidad de medida.");
+        } else if (!unidad.get().getExtra().equals(p.getTipo())) {
+            errores.put("idUnidadMedida", p.isProducto()
+                    ? "Un producto se mide en unidades, cajas, frascos..." : "Un servicio se mide por servicio, sesión o examen.");
+        }
+        // El prefijo del código automático debe coincidir con el tipo (SRV = servicio, PRD = producto)
+        if (CODIGO_AUTOMATICO.matcher(p.getCodigo()).matches() && !p.getCodigo().startsWith(prefijo(p.getTipo()))) {
+            errores.put("codigo", "Los códigos " + p.getCodigo().substring(0, 4) + " son para "
+                    + (p.isProducto() ? "servicios" : "productos") + ". Usa " + prefijo(p.getTipo()) + "… o déjalo vacío.");
         }
         if (p.getPrecio() == null) {
             errores.put("precio", "Escribe el precio en soles (ej. 80.00).");
@@ -131,6 +169,11 @@ public class ProductoServicioService {
             }
         }
         return errores;
+    }
+
+    /** SRV- para servicios, PRD- para productos. */
+    public static String prefijo(String tipo) {
+        return ProductoServicioDTO.PRODUCTO.equals(tipo) ? "PRD-" : "SRV-";
     }
 
     private static Optional<OpcionDTO> buscar(List<OpcionDTO> lista, Integer id) {

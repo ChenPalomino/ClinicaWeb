@@ -101,6 +101,11 @@ public class AutenticacionController extends HttpServlet {
     private static void cerrarSesion(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session != null) {
+            Object quien = session.getAttribute("usuarioLogueado");
+            if (quien instanceof Usuario) {
+                evento.EventoSubject.getInstancia().publicar(evento.TipoEvento.CIERRE_SESION, (Usuario) quien,
+                        ((Usuario) quien).getIdUsuario(), null);
+            }
             session.invalidate();
         }
     }

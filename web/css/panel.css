@@ -198,3 +198,10 @@ body.dark-mode .callout { background-color: #1e293b; }
 body.dark-mode .btn-outline-primary { color: #93c5fd; border-color: #3b82f6; }
 body.dark-mode .btn-outline-primary:hover { background-color: #1e5aa8; color: #fff; }
 body.dark-mode .btn-outline-secondary { color: #cbd5e1; border-color: #64748b; }
+
+/* ---------- Aviso: la pestaña pertenece a otra cuenta (una sesión por navegador) ---------- */
+.aviso-pestana { position: fixed; inset: 0; z-index: 2000; background: rgba(15, 23, 42, .55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; }
+.aviso-pestana .card { max-width: 440px; margin: 0; }
+/* ---------- Historial (auditoría) ---------- */
+.historial .list-group-item { padding: .55rem .9rem; }

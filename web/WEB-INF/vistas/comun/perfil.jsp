@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="java.util.Map" %>
+<%@ page import="java.util.Map, java.util.List, modelo.dto.OpcionDTO" %>
 <%@ include file="/WEB-INF/vistas/plantilla/cabecera.jspf" %>
 <%!
     private String invalido(Map<String, String> e, String campo) { return e.containsKey(campo) ? "is-invalid" : ""; }
@@ -13,6 +13,9 @@
     @SuppressWarnings("unchecked")
     Map<String, String> errores = (Map<String, String>) request.getAttribute("errores");
     String tab = (String) request.getAttribute("tab");
+    @SuppressWarnings("unchecked")
+    List<OpcionDTO> sexos = (List<OpcionDTO>) request.getAttribute("sexos");
+    if (sexos == null) sexos = List.of();
     String[][] pestanas = {
         {"datos", "fas fa-id-card", "Datos personales"},
         {"foto", "fas fa-camera", "Foto de perfil"},
@@ -43,6 +46,11 @@
                 <li class="list-group-item"><i class="fas fa-id-badge fa-fw text-muted mr-2"></i>DNI <span class="float-right"><%= perfilSesion.getDni().isBlank() ? "—" : EscapeHtml.texto(perfilSesion.getDni()) %></span></li>
                 <li class="list-group-item"><i class="fas fa-envelope fa-fw text-muted mr-2"></i><span class="text-break"><%= perfilSesion.getCorreo().isBlank() ? "Sin correo" : EscapeHtml.texto(perfilSesion.getCorreo()) %></span></li>
                 <li class="list-group-item"><i class="fas fa-mobile-alt fa-fw text-muted mr-2"></i><%= perfilSesion.getCelular().isBlank() ? "Sin celular" : EscapeHtml.texto(perfilSesion.getCelular()) %></li>
+                <li class="list-group-item"><i class="fas fa-birthday-cake fa-fw text-muted mr-2"></i>Edad <span class="float-right"><%= perfilSesion.getEdad() == null ? "Sin registrar" : perfilSesion.getEdad() + " años" %></span></li>
+                <% if (perfilSesion.isPaciente()) { %>
+                <li class="list-group-item"><i class="fas fa-folder-open fa-fw text-muted mr-2"></i>Historia clínica <span class="float-right"><%= EscapeHtml.texto(perfilSesion.getNumeroHistoria()) %></span></li>
+                <li class="list-group-item"><i class="fas fa-shield-alt fa-fw text-muted mr-2"></i>Cobertura <span class="float-right"><%= EscapeHtml.texto(perfilSesion.getNombreCobertura()) %></span></li>
+                <% } %>
             </ul>
         </div>
     </div>
@@ -105,6 +113,24 @@
                                     <label for="celular">Celular</label>
                                     <input type="tel" class="form-control <%= invalido(errores, "celular") %>" id="celular" name="celular" maxlength="9" inputmode="numeric" data-solo-numeros value="<%= EscapeHtml.texto(p.getCelular()) %>" placeholder="9XXXXXXXX" autocomplete="tel-national">
                                     <%= error(errores, "celular") %>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                    <label for="idSexo">Sexo <small class="text-muted">(opcional)</small></label>
+                                    <select class="form-control" id="idSexo" name="idSexo">
+                                        <option value="">— Prefiero no indicarlo —</option>
+                                        <% for (OpcionDTO s : sexos) { %>
+                                        <option value="<%= s.getId() %>" <%= p.getIdSexo() != null && p.getIdSexo() == s.getId() ? "selected" : "" %>><%= EscapeHtml.texto(s.getNombre()) %></option>
+                                        <% } %>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <label for="fechaNacimiento">Fecha de nacimiento <small class="text-muted">(opcional)</small></label>
+                                    <input type="date" class="form-control <%= invalido(errores, "fechaNacimiento") %>" id="fechaNacimiento" name="fechaNacimiento"
+                                           max="<%= java.time.LocalDate.now() %>" value="<%= p.getFechaNacimiento() == null ? "" : p.getFechaNacimiento() %>" autocomplete="bday">
+                                    <small class="form-text text-muted">Edad: <strong data-edad-de="fechaNacimiento"></strong><%= perfilSesion.isPaciente() ? " · La ve admisión al atenderte." : "" %></small>
+                                    <%= error(errores, "fechaNacimiento") %>
                                 </div>
                             </div>
                             <div class="form-group">

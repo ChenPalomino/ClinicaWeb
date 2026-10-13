@@ -87,11 +87,11 @@ public class ProveedorController extends HttpServlet {
                     return;
                 }
                 case "desactivar":
-                    ControladorUtil.resultado(session, servicio.desactivar(id),
+                    ControladorUtil.resultado(session, servicio.desactivar(id, sesion),
                             "Proveedor desactivado. Ya no aparecerá al elegir proveedor; puedes reactivarlo cuando quieras.");
                     break;
                 case "reactivar":
-                    ControladorUtil.resultado(session, servicio.reactivar(id), "Proveedor reactivado.");
+                    ControladorUtil.resultado(session, servicio.reactivar(id, sesion), "Proveedor reactivado.");
                     break;
                 default:
                     MensajeFlash.error(session, "Acción no reconocida.");

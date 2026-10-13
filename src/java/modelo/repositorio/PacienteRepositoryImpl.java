@@ -6,7 +6,6 @@ import modelo.dto.PacienteDTO;
 import modelo.dto.PaginaDTO;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,7 +26,7 @@ public class PacienteRepositoryImpl implements PacienteRepository {
     private static final String SELECT_PACIENTE =
           "SELECT p.id_paciente, p.id_datos_personales, p.numero_historia, p.id_cobertura, "
         + "       cb.nombre AS nombre_cobertura, cb.tipo AS tipo_cobertura, p.numero_afiliacion, "
-        + "       p.fecha_nacimiento, p.observaciones, p.estado, p.fecha_creacion, p.usuario_registro, "
+        + "       d.fecha_nacimiento, p.observaciones, p.estado, p.fecha_creacion, p.usuario_registro, "
         + "       d.nombres, d.apellidos, d.dni, d.id_sexo, (d.id_usuario IS NOT NULL) AS tiene_cuenta, "
         + "       c.correo_electronico, t.numero_telefono "
         + "FROM tt_paciente p "
@@ -53,8 +52,7 @@ public class PacienteRepositoryImpl implements PacienteRepository {
         p.setNombreCobertura(rs.getString("nombre_cobertura"));
         p.setTipoCobertura(rs.getString("tipo_cobertura"));
         p.setNumeroAfiliacion(rs.getString("numero_afiliacion"));
-        Date nacimiento = rs.getDate("fecha_nacimiento");
-        p.setFechaNacimiento(nacimiento == null ? null : nacimiento.toLocalDate());
+        p.setFechaNacimiento(RepositorioUtil.fechaONula(rs, "fecha_nacimiento"));
         p.setObservaciones(rs.getString("observaciones"));
         p.setEstado(rs.getString("estado"));
         p.setFechaCreacion(rs.getTimestamp("fecha_creacion"));
@@ -146,13 +144,13 @@ public class PacienteRepositoryImpl implements PacienteRepository {
                 int idDatos = buscarOCrearPersona(cn, p);
                 int idPaciente;
                 try (PreparedStatement stmt = cn.prepareStatement(
-                        "INSERT INTO tt_paciente (id_datos_personales, id_cobertura, numero_afiliacion, fecha_nacimiento, "
+                        "INSERT INTO tt_paciente (id_datos_personales, id_cobertura, numero_afiliacion, "
                       + "                         observaciones, estado, usuario_registro) "
-                      + "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_paciente")) {
+                      + "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_paciente")) {
                     stmt.setInt(1, idDatos);
                     llenarFicha(stmt, 2, p);
-                    stmt.setString(6, p.getEstado());
-                    stmt.setString(7, p.getUsuarioRegistro());
+                    stmt.setString(5, p.getEstado());
+                    stmt.setString(6, p.getUsuarioRegistro());
                     try (ResultSet rs = stmt.executeQuery()) {
                         rs.next();
                         idPaciente = rs.getInt(1);
@@ -177,12 +175,11 @@ public class PacienteRepositoryImpl implements PacienteRepository {
             try {
                 int idDatos;
                 try (PreparedStatement stmt = cn.prepareStatement(
-                        "UPDATE tt_paciente SET id_cobertura = ?, numero_afiliacion = ?, fecha_nacimiento = ?, "
-                      + "       observaciones = ?, estado = ? "
+                        "UPDATE tt_paciente SET id_cobertura = ?, numero_afiliacion = ?, observaciones = ?, estado = ? "
                       + "WHERE id_paciente = ? RETURNING id_datos_personales")) {
                     llenarFicha(stmt, 1, p);
-                    stmt.setString(5, p.getEstado());
-                    stmt.setInt(6, p.getIdPaciente());
+                    stmt.setString(4, p.getEstado());
+                    stmt.setInt(5, p.getIdPaciente());
                     try (ResultSet rs = stmt.executeQuery()) {
                         if (!rs.next()) {
                             cn.rollback();
@@ -192,13 +189,14 @@ public class PacienteRepositoryImpl implements PacienteRepository {
                     }
                 }
                 try (PreparedStatement stmt = cn.prepareStatement(
-                        "UPDATE tt_datos_personales SET nombres = ?, apellidos = ?, dni = ?, id_sexo = ? "
+                        "UPDATE tt_datos_personales SET nombres = ?, apellidos = ?, dni = ?, id_sexo = ?, fecha_nacimiento = ? "
                       + "WHERE id_datos_personales = ?")) {
                     stmt.setString(1, p.getNombres());
                     stmt.setString(2, p.getApellidos());
                     stmt.setString(3, p.getDni());
                     RepositorioUtil.enteroONulo(stmt, 4, p.getIdSexo());
-                    stmt.setInt(5, idDatos);
+                    RepositorioUtil.fechaONula(stmt, 5, p.getFechaNacimiento());
+                    stmt.setInt(6, idDatos);
                     stmt.executeUpdate();
                 }
                 guardarContactos(cn, idDatos, p);
@@ -241,18 +239,29 @@ public class PacienteRepositoryImpl implements PacienteRepository {
             stmt.setString(1, p.getDni());
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    int idExistente = rs.getInt(1);
+                    // Persona ya registrada: solo se completan los datos que le falten (no se pisan)
+                    try (PreparedStatement upd = cn.prepareStatement(
+                            "UPDATE tt_datos_personales SET id_sexo = COALESCE(id_sexo, ?), "
+                          + "fecha_nacimiento = COALESCE(fecha_nacimiento, ?) WHERE id_datos_personales = ?")) {
+                        RepositorioUtil.enteroONulo(upd, 1, p.getIdSexo());
+                        RepositorioUtil.fechaONula(upd, 2, p.getFechaNacimiento());
+                        upd.setInt(3, idExistente);
+                        upd.executeUpdate();
+                    }
+                    return idExistente;
                 }
             }
         }
         try (PreparedStatement stmt = cn.prepareStatement(
-                "INSERT INTO tt_datos_personales (nombres, apellidos, dni, id_sexo, usuario_registro) "
-              + "VALUES (?, ?, ?, ?, ?) RETURNING id_datos_personales")) {
+                "INSERT INTO tt_datos_personales (nombres, apellidos, dni, id_sexo, fecha_nacimiento, usuario_registro) "
+              + "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_datos_personales")) {
             stmt.setString(1, p.getNombres());
             stmt.setString(2, p.getApellidos());
             stmt.setString(3, p.getDni());
             RepositorioUtil.enteroONulo(stmt, 4, p.getIdSexo());
-            stmt.setString(5, p.getUsuarioRegistro());
+            RepositorioUtil.fechaONula(stmt, 5, p.getFechaNacimiento());
+            stmt.setString(6, p.getUsuarioRegistro());
             try (ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 return rs.getInt(1);
@@ -260,16 +269,11 @@ public class PacienteRepositoryImpl implements PacienteRepository {
         }
     }
 
-    /** Cobertura, afiliación, nacimiento y observaciones (4 parámetros desde "desde"). */
+    /** Cobertura, afiliación y observaciones (3 parámetros desde "desde"). */
     private static void llenarFicha(PreparedStatement stmt, int desde, PacienteDTO p) throws SQLException {
         stmt.setInt(desde, p.getIdCobertura());
         RepositorioUtil.textoONulo(stmt, desde + 1, p.getNumeroAfiliacion());
-        if (p.getFechaNacimiento() == null) {
-            stmt.setNull(desde + 2, java.sql.Types.DATE);
-        } else {
-            stmt.setDate(desde + 2, Date.valueOf(p.getFechaNacimiento()));
-        }
-        RepositorioUtil.textoONulo(stmt, desde + 3, p.getObservaciones());
+        RepositorioUtil.textoONulo(stmt, desde + 2, p.getObservaciones());
     }
 
     private static void guardarContactos(Connection cn, int idDatos, PacienteDTO p) throws SQLException {

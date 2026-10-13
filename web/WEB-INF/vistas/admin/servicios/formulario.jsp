@@ -39,8 +39,10 @@
                         <div class="form-group col-md-4">
                             <label for="codigo">Código</label>
                             <input type="text" class="form-control text-uppercase <%= invalido(errores, "codigo") %>" id="codigo" name="codigo"
-                                   maxlength="20" value="<%= EscapeHtml.texto(p.getCodigo()) %>" placeholder="Automático">
-                            <small class="form-text text-muted">Déjalo vacío para generarlo.</small>
+                                   maxlength="20" value="<%= EscapeHtml.texto(p.getCodigo()) %>" placeholder="Automático"
+                                   data-codigo-SERVICIO="<%= request.getAttribute("codigoServicio") == null ? "" : request.getAttribute("codigoServicio") %>"
+                                   data-codigo-PRODUCTO="<%= request.getAttribute("codigoProducto") == null ? "" : request.getAttribute("codigoProducto") %>">
+                            <small class="form-text text-muted">SRV- servicios · PRD- productos. Vacío = automático.</small>
                             <%= error(errores, "codigo") %>
                         </div>
                         <div class="form-group col-md-8">
@@ -103,10 +105,10 @@
                             <%= error(errores, "precio") %>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="idUnidadMedida">Unidad <span class="text-danger" aria-hidden="true">*</span></label>
-                            <select class="form-control <%= invalido(errores, "idUnidadMedida") %>" id="idUnidadMedida" name="idUnidadMedida">
+                            <label for="idUnidadMedida">Se cobra por <span class="text-danger" aria-hidden="true">*</span></label>
+                            <select class="form-control <%= invalido(errores, "idUnidadMedida") %>" id="idUnidadMedida" name="idUnidadMedida" data-filtrar-por="tipo">
                                 <% for (OpcionDTO u : unidades) { %>
-                                <option value="<%= u.getId() %>" <%= sel(p.getIdUnidadMedida() == u.getId()) %>><%= EscapeHtml.texto(u.getNombre()) %> (<%= EscapeHtml.texto(u.getExtra()) %>)</option>
+                                <option value="<%= u.getId() %>" data-extra="<%= u.getExtra() %>" <%= sel(p.getIdUnidadMedida() == u.getId()) %>><%= EscapeHtml.texto(u.getNombre()) %></option>
                                 <% } %>
                             </select>
                             <%= error(errores, "idUnidadMedida") %>
@@ -164,6 +166,7 @@
                 </div>
             </div>
             <% } %>
+            <%@ include file="/WEB-INF/vistas/comun/historial.jspf" %>
             <div class="callout callout-info small">
                 <i class="fas fa-calculator mr-1"></i> En caja (Etapa 6) el precio se ajustará según la cobertura del paciente (particular, EPS, seguro o convenio).
             </div>

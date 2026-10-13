@@ -118,6 +118,21 @@ final class RepositorioUtil {
         }
     }
 
+    /** Fecha (LocalDate) que puede ser null. */
+    static void fechaONula(PreparedStatement stmt, int indice, java.time.LocalDate valor) throws SQLException {
+        if (valor == null) {
+            stmt.setNull(indice, java.sql.Types.DATE);
+        } else {
+            stmt.setDate(indice, java.sql.Date.valueOf(valor));
+        }
+    }
+
+    /** Fecha que puede venir NULL de la BD. */
+    static java.time.LocalDate fechaONula(ResultSet rs, String columna) throws SQLException {
+        java.sql.Date fecha = rs.getDate(columna);
+        return fecha == null ? null : fecha.toLocalDate();
+    }
+
     /** Texto vacío -> NULL en la BD. */
     static void textoONulo(PreparedStatement stmt, int indice, String valor) throws SQLException {
         if (valor == null || valor.isBlank()) {

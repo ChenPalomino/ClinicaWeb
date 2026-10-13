@@ -54,6 +54,7 @@
             b.classList.add("dark-mode");
         }
         try {
+            localStorage.setItem("clinica.sesion.activa", b.dataset.usuario); // cuenta abierta en este navegador
             localStorage.removeItem("clinica.tema");            // versión anterior: el tema se guardaba en el NAVEGADOR (compartido entre cuentas)
             var estado = localStorage.getItem("clinica.menu." + b.dataset.usuario) || "sidebar-open";
             localStorage.setItem("remember.lte.pushmenu", estado); // AdminLTE lee esta clave al iniciar

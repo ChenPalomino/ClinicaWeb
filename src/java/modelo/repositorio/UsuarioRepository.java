@@ -9,6 +9,8 @@ import modelo.dto.TokenRecuperacionDTO;
 import modelo.dto.UsuarioDTO;
 import modelo.entidades.Usuario;
 
+import java.util.Optional;
+
 /**
  * PATRÓN: Repository  ->  INTERFAZ (el "contrato")
  *
@@ -44,7 +46,16 @@ public interface UsuarioRepository extends CrudRepository<UsuarioDTO, Integer> {
 
     EstadisticasUsuariosDTO obtenerEstadisticas();
 
+    /** Cuentas activas cuyo correo es de PRUEBA (@clinica.demo): a esas direcciones nunca llega nada. */
+    java.util.List<String> usuariosConCorreoDePrueba();
+
     // ---------------- Autenticación ----------------
+    /**
+     * Estado actual de la cuenta (rol, estado y bloqueo) para revisar en cada
+     * petición que la sesión sigue siendo válida. Consulta liviana por llave primaria.
+     */
+    Optional<UsuarioDTO> buscarEstadoAcceso(int idUsuario);
+
     /** Busca un usuario activo por su nombre de usuario o por su DNI. */
     Usuario buscarPorNombreUsuario(String nombreUsuarioODni);
 

@@ -17,7 +17,11 @@ public class PerfilDTO {
     private String descripcion = "";
     private boolean tieneFoto;
     private long fotoVersion;
-    private String tema = "claro";      // preferencia personal: claro | oscuro | sistema
+    private String tema = "claro";
+    private Integer idSexo;
+    private java.time.LocalDate fechaNacimiento;
+    private String numeroHistoria = "";   // solo si la persona es paciente
+    private String nombreCobertura = "";      // preferencia personal: claro | oscuro | sistema
 
     /** Nombre para saludar: el primer nombre, o el usuario si aún no tiene datos personales. */
     public String getNombreMostrar() {
@@ -85,4 +89,18 @@ public class PerfilDTO {
     public void setFotoVersion(long fotoVersion) { this.fotoVersion = fotoVersion; }
     public String getTema() { return tema; }
     public void setTema(String tema) { this.tema = tema == null ? "claro" : tema; }
+    public Integer getIdSexo() { return idSexo; }
+    public void setIdSexo(Integer v) { this.idSexo = v; }
+    public java.time.LocalDate getFechaNacimiento() { return fechaNacimiento; }
+    public void setFechaNacimiento(java.time.LocalDate v) { this.fechaNacimiento = v; }
+    public String getNumeroHistoria() { return numeroHistoria; }
+    public void setNumeroHistoria(String v) { this.numeroHistoria = v == null ? "" : v; }
+    public String getNombreCobertura() { return nombreCobertura; }
+    public void setNombreCobertura(String v) { this.nombreCobertura = v == null ? "" : v; }
+    public boolean isPaciente() { return !numeroHistoria.isEmpty(); }
+
+    /** Edad en años cumplidos, o null si no registró su fecha de nacimiento. */
+    public Integer getEdad() {
+        return fechaNacimiento == null ? null : java.time.Period.between(fechaNacimiento, java.time.LocalDate.now()).getYears();
+    }
 }
