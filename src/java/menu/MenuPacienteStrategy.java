@@ -19,8 +19,9 @@ public class MenuPacienteStrategy implements MenuStrategy {
     public List<OpcionMenu> getOpciones() {
         return List.of(
                 new OpcionMenu("PRINCIPAL", "Inicio", "fas fa-home", "/panel", "inicio", true),
-                OpcionMenu.proximamente("MIS CITAS", "Reservar cita", "fas fa-calendar-plus"),
-                OpcionMenu.proximamente("MIS CITAS", "Mis citas", "fas fa-calendar-check"),
+                new OpcionMenu("MIS CITAS", "Reservar cita", "fas fa-calendar-plus", "/paciente/citas?accion=reservar", "reservar", true),
+                new OpcionMenu("MIS CITAS", "Mis citas", "fas fa-calendar-check", "/paciente/citas", "citas", true),
+                new OpcionMenu("MIS PAGOS", "Pagos y comprobantes", "fas fa-receipt", "/paciente/pagos", "pagos", true),
                 new OpcionMenu("MI CUENTA", "Mi perfil y ajustes", "fas fa-user-circle", "/perfil", "perfil", true)
         );
     }

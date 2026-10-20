@@ -34,6 +34,7 @@ public class AutorizacionFilter implements Filter {
     static final Map<String, Set<Integer>> PERMISOS = Map.of(
             "/admin",     Set.of(Rol.ADMINISTRADOR),
             "/recepcion", Set.of(Rol.ADMINISTRADOR, Rol.RECEPCIONISTA),
+            "/caja",      Set.of(Rol.ADMINISTRADOR, Rol.RECEPCIONISTA),
             "/medico",    Set.of(Rol.ADMINISTRADOR, Rol.MEDICO),
             "/paciente",  Set.of(Rol.PACIENTE)
     );

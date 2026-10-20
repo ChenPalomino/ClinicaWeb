@@ -103,6 +103,21 @@ final class RepositorioUtil {
         }
     }
 
+    /** Agrega al WHERE el rango de fechas de registro (columna = constante del código, ej. "p.fecha_creacion"). */
+    static void filtrarFechas(StringBuilder where, List<Object> parametros, String columna, modelo.dto.RangoFechasDTO rango) {
+        if (rango == null) {
+            return;
+        }
+        if (rango.getDesde() != null) {
+            where.append(" AND ").append(columna).append(" >= ?");
+            parametros.add(java.sql.Date.valueOf(rango.getDesde()));
+        }
+        if (rango.getHasta() != null) {
+            where.append(" AND ").append(columna).append(" < ?");      // hasta inclusive: antes del día siguiente
+            parametros.add(java.sql.Date.valueOf(rango.getHastaExclusivo()));
+        }
+    }
+
     /** Integer que puede venir NULL de la BD. */
     static Integer enteroONulo(ResultSet rs, String columna) throws SQLException {
         int v = rs.getInt(columna);

@@ -205,3 +205,157 @@ body.dark-mode .btn-outline-secondary { color: #cbd5e1; border-color: #64748b; }
 .aviso-pestana .card { max-width: 440px; margin: 0; }
 /* ---------- Historial (auditoría) ---------- */
 .historial .list-group-item { padding: .55rem .9rem; }
+
+/* ---------- Caja y cobranza (Etapa 6) ---------- */
+.monto { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.display-total { font-size: 2.1rem; font-weight: 700; line-height: 1.1; }
+.selector-metodo .btn { padding: .5rem .25rem; line-height: 1.2; }
+.selector-metodo .btn i { font-size: 1.25rem; }
+.totales-cuenta dt, .totales-cuenta dd { margin-bottom: .2rem; }
+.anular-cuenta > summary { cursor: pointer; list-style: none; }
+.anular-cuenta > summary::-webkit-details-marker { display: none; }
+.anular-cuenta[open] > summary { border-bottom: 1px solid rgba(0, 0, 0, .125); }
+.tabla-detalle td { vertical-align: middle; }
+.pasos-cobro li { margin-bottom: .4rem; }
+.resumen-caja .h4, .resumen-caja .h5 { font-weight: 700; }
+body.dark-mode .anular-cuenta[open] > summary { border-bottom-color: #4b545c; }
+
+/* ---------- Foto de perfil ampliable ---------- */
+.foto-ampliable { cursor: zoom-in; transition: transform .15s ease, box-shadow .15s ease; }
+.foto-ampliable:hover, .foto-ampliable:focus { transform: scale(1.04); box-shadow: 0 0 0 3px rgba(0, 123, 255, .35); outline: none; }
+.visor-foto .modal-dialog { max-width: min(92vw, 520px); }
+.visor-foto .modal-content { background: transparent; border: 0; box-shadow: none; align-items: center; }
+.visor-foto img { width: 100%; max-height: 80vh; object-fit: contain; border-radius: 12px; background: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, .45); }
+.visor-foto .close { position: absolute; top: -6px; right: -6px; z-index: 2; width: 36px; height: 36px; border-radius: 50%;
+                     background: #fff; opacity: 1; text-shadow: none; color: #333; box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
+.visor-foto .visor-nombre { color: #fff; font-weight: 600; margin-top: 12px; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.aviso-rango { line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .foto-ampliable { transition: none; } }
+
+/* =====================================================================
+   CITAS (Etapa 7): agenda día/semana/mes, asistente de reserva y tarjetas
+   ===================================================================== */
+/* --- Barra de la agenda --- */
+.agenda-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.agenda-barra .titulo-agenda { font-size: 1.15rem; font-weight: 600; margin: 0 .5rem 0 0; }
+.agenda-barra .badge-hoy { font-size: .7rem; vertical-align: middle; }
+.chips-estado { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip-estado { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .65rem; border-radius: 999px;
+    border: 1px solid #dee2e6; color: inherit; font-size: .85rem; background: #fff; }
+.chip-estado:hover { text-decoration: none; border-color: var(--clinica-azul-claro); }
+.chip-estado.activo { border-color: var(--clinica-azul-claro); background: #eaf2fc; font-weight: 600; }
+.chip-estado .num { font-weight: 700; }
+
+/* --- Vista de día --- */
+.tabla-agenda td { vertical-align: middle; }
+.tabla-agenda .hora { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+.tabla-agenda tr.cita-pasada { opacity: .65; }
+.tabla-agenda tr.cita-siguiente { box-shadow: inset 4px 0 0 var(--clinica-azul-claro); background: #f4f8fd; }
+.tabla-agenda tr.cita-cancelada .nombre-paciente { text-decoration: line-through; }
+.alerta-paciente { color: #b45309; }
+
+/* --- Vista de semana --- */
+.semana-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid #dee2e6; }
+.semana-dia { border-right: 1px solid #dee2e6; min-height: 180px; padding: .5rem; }
+.semana-dia:last-child { border-right: 0; }
+.semana-dia.es-hoy { background: #f4f8fd; }
+.semana-cabecera { display: block; text-align: center; margin-bottom: .5rem; color: inherit; }
+.semana-cabecera:hover { text-decoration: none; }
+.semana-cabecera .num { display: block; font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
+.semana-dia.es-hoy .semana-cabecera .num { color: var(--clinica-azul-claro); }
+.semana-cita { display: block; padding: .3rem .4rem; margin-bottom: .35rem; border-radius: 6px; border-left: 3px solid #17a2b8;
+    background: #f8fafc; font-size: .8rem; line-height: 1.25; color: inherit; }
+.semana-cita:hover { text-decoration: none; background: #eaf2fc; }
+.semana-cita.estado-CONFIRMADA { border-left-color: #ffc107; }
+.semana-cita.estado-ATENDIDA { border-left-color: #28a745; }
+.semana-cita.estado-NO_ASISTIO { border-left-color: #6c757d; opacity: .75; }
+.semana-cita.estado-CANCELADA { border-left-color: #dc3545; opacity: .6; text-decoration: line-through; }
+@media (max-width: 991.98px) {
+    .semana-grid { grid-template-columns: 1fr; }
+    .semana-dia { border-right: 0; border-bottom: 1px solid #dee2e6; min-height: 0; }
+    .semana-cabecera { text-align: left; }
+    .semana-cabecera .num { display: inline; font-size: 1rem; margin-left: .25rem; }
+}
+
+/* --- Vista de mes --- */
+.mes-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.mes-encabezado { text-align: center; font-size: .8rem; font-weight: 600; color: #6c757d; padding: .25rem 0; }
+.mes-celda { display: block; min-height: 78px; padding: .35rem .45rem; border: 1px solid #e5e7eb; border-radius: 8px; color: inherit; }
+.mes-celda:hover { text-decoration: none; border-color: var(--clinica-azul-claro); }
+.mes-celda.fuera-mes { opacity: .35; }
+.mes-celda.es-hoy { border: 2px solid var(--clinica-azul-claro); }
+.mes-celda .mes-num { font-weight: 700; }
+.mes-celda .mes-total { display: block; margin-top: .25rem; font-size: .8rem; }
+.mes-celda .mes-total .badge { font-size: .75rem; }
+@media (max-width: 575.98px) { .mes-celda { min-height: 54px; padding: .2rem; } .mes-celda .mes-total small { display: none; } }
+
+/* --- Asistente de reserva --- */
+.pasos { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: 0; padding: 0; list-style: none; font-size: .9rem; }
+.pasos li { color: #9aa5b1; display: flex; align-items: center; gap: .4rem; }
+.pasos li .n { width: 24px; height: 24px; border-radius: 50%; border: 2px solid currentColor; display: inline-flex;
+    align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; }
+.pasos li.hecho { color: #28a745; }
+.pasos li.actual { color: var(--clinica-azul-claro); font-weight: 600; }
+.opciones-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
+.opcion-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .55rem .9rem; border: 1px solid #ced4da;
+    border-radius: 10px; color: inherit; background: #fff; }
+.opcion-btn:hover { text-decoration: none; border-color: var(--clinica-azul-claro); background: #f4f8fd; }
+.opcion-btn.activo { border-color: var(--clinica-azul-claro); background: var(--clinica-azul-claro); color: #fff; }
+.opcion-btn.activo small { color: rgba(255, 255, 255, .85) !important; }
+.tira-dias { display: flex; gap: .45rem; overflow-x: auto; padding-bottom: .4rem; scroll-snap-type: x proximity; }
+.dia-btn { flex: 0 0 auto; width: 78px; text-align: center; padding: .45rem .25rem; border: 1px solid #ced4da;
+    border-radius: 10px; color: inherit; background: #fff; scroll-snap-align: start; line-height: 1.2; }
+.dia-btn:hover { text-decoration: none; border-color: var(--clinica-azul-claro); }
+.dia-btn .dia-nombre { display: block; font-size: .75rem; text-transform: capitalize; color: #6c757d; }
+.dia-btn .dia-num { display: block; font-size: 1.35rem; font-weight: 700; }
+.dia-btn .dia-libres { display: block; font-size: .72rem; color: #28a745; font-weight: 600; }
+.dia-btn.sin-turnos { background: #f8f9fa; color: #adb5bd; pointer-events: none; }
+.dia-btn.sin-turnos .dia-libres { color: #adb5bd; font-weight: 400; }
+.dia-btn.activo { background: var(--clinica-azul-claro); border-color: var(--clinica-azul-claro); color: #fff; }
+.dia-btn.activo .dia-nombre, .dia-btn.activo .dia-libres { color: rgba(255, 255, 255, .9); }
+.turnos-grid { display: flex; flex-wrap: wrap; gap: .4rem; }
+.turno-btn { min-width: 96px; }
+.turno-btn.ocupado { text-decoration: line-through; opacity: .55; cursor: not-allowed; }
+.medico-turnos .card-header { display: flex; align-items: center; gap: .75rem; }
+.resumen-reserva dt { font-weight: 400; color: #6c757d; }
+.resumen-reserva dd { font-weight: 600; margin-bottom: .4rem; }
+
+/* --- Tarjetas de cita (paciente) --- */
+.cita-tarjeta { display: flex; gap: 1rem; align-items: flex-start; }
+.fecha-bloque { flex: 0 0 auto; width: 70px; text-align: center; border-radius: 10px; overflow: hidden; border: 1px solid #dee2e6; }
+.fecha-bloque .mes { display: block; background: var(--clinica-azul-claro); color: #fff; font-size: .75rem; text-transform: uppercase; padding: 2px 0; }
+.fecha-bloque .dia { display: block; font-size: 1.6rem; font-weight: 700; line-height: 1.3; }
+.fecha-bloque .sem { display: block; font-size: .72rem; color: #6c757d; padding-bottom: 3px; text-transform: capitalize; }
+.cita-destacada { border-left: 4px solid var(--clinica-azul-claro); }
+
+/* --- Línea de tiempo del detalle --- */
+.linea-tiempo { list-style: none; margin: 0; padding: 0 0 0 1.25rem; border-left: 2px solid #dee2e6; }
+.linea-tiempo li { position: relative; padding: 0 0 .9rem .5rem; }
+.linea-tiempo li::before { content: ""; position: absolute; left: -1.62rem; top: .3rem; width: 12px; height: 12px;
+    border-radius: 50%; background: #fff; border: 2px solid var(--clinica-azul-claro); }
+.linea-tiempo li.rojo::before { border-color: #dc3545; }
+.linea-tiempo li.verde::before { border-color: #28a745; }
+
+/* --- Horario del médico (formulario) --- */
+.tabla-horario td, .tabla-horario th { vertical-align: middle; }
+.tabla-horario input[type="time"] { min-width: 105px; }
+.tabla-horario tr.dia-apagado input[type="time"] { opacity: .4; }
+
+/* --- Modo oscuro de citas --- */
+body.dark-mode .chip-estado, body.dark-mode .opcion-btn, body.dark-mode .dia-btn { background: #1e293b; border-color: #334155; }
+body.dark-mode .chip-estado.activo, body.dark-mode .opcion-btn:hover { background: #1e3a5f; }
+body.dark-mode .opcion-btn.activo, body.dark-mode .dia-btn.activo { background: var(--clinica-azul-claro); }
+body.dark-mode .dia-btn.sin-turnos { background: #111c33; color: #64748b; }
+body.dark-mode .semana-grid, body.dark-mode .semana-dia { border-color: #334155; }
+body.dark-mode .semana-dia.es-hoy, body.dark-mode .tabla-agenda tr.cita-siguiente { background: #172554; }
+body.dark-mode .semana-cita { background: #0f172a; }
+body.dark-mode .semana-cita:hover { background: #1e3a5f; }
+body.dark-mode .mes-celda { border-color: #334155; }
+body.dark-mode .fecha-bloque { border-color: #334155; }
+body.dark-mode .linea-tiempo { border-color: #334155; }
+body.dark-mode .linea-tiempo li::before { background: #1e293b; }
+body.dark-mode .alerta-paciente { color: #fbbf24; }
+body.dark-mode .card .card.medico-turnos { border-color: #334155 !important; background: #172033; }
+body.dark-mode .medico-turnos .card-header { background: transparent; border-color: #334155; }
+body.dark-mode .mes-celda.es-hoy { border-color: #60a5fa; }
+body.dark-mode .tabla-agenda tr.cita-siguiente { box-shadow: inset 4px 0 0 #60a5fa; }

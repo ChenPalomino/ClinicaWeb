@@ -22,6 +22,54 @@ $(function () {
     });
     function enPestana(u) { return window.ClinicaPestana ? window.ClinicaPestana.url(u) : u; }
 
+    // ---------- Foto de perfil: clic para verla en grande ----------
+    // Solo las fotos que no son ya un enlace o un menú (la del menú lateral lleva a "Mi perfil").
+    function fotosAmpliables() {
+        document.querySelectorAll("img.avatar-foto").forEach(function (img) {
+            if (img.closest("a, [data-toggle], #vistaFoto")) return;
+            img.classList.add("foto-ampliable");
+            img.setAttribute("role", "button");
+            img.setAttribute("tabindex", "0");
+            img.setAttribute("aria-label", "Ver la foto en grande");
+            img.title = "Ver la foto en grande";
+        });
+    }
+    function abrirFoto(img) {
+        let visor = document.getElementById("visorFoto");
+        if (!visor) {
+            visor = document.createElement("div");
+            visor.id = "visorFoto";
+            visor.className = "modal fade visor-foto";
+            visor.tabIndex = -1;
+            visor.setAttribute("role", "dialog");
+            visor.setAttribute("aria-label", "Foto de perfil");
+            visor.innerHTML = '<div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content">'
+                + '<button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>'
+                + '<img alt="Foto de perfil en grande"><p class="visor-nombre mb-0"></p></div></div>';
+            document.body.appendChild(visor);
+            // Esc cierra el visor incluso si se pulsa mientras todavía se está abriendo
+            let cerrarAlMostrar = false;
+            $(visor).on("shown.bs.modal", function () { if (cerrarAlMostrar) { cerrarAlMostrar = false; $(visor).modal("hide"); } });
+            $(visor).on("hidden.bs.modal", function () { cerrarAlMostrar = false; });
+            document.addEventListener("keydown", function (e) {
+                if (e.key !== "Escape" || !visor.classList.contains("show")) return;
+                cerrarAlMostrar = true;
+                $(visor).modal("hide");
+            });
+        }
+        visor.querySelector("img").src = img.src;
+        const fila = img.closest("tr");
+        const celda = fila ? fila.querySelector(".font-weight-bold") : null;   // en el listado: el nombre, sin etiquetas como "Tú"
+        const nombre = img.dataset.nombre || (celda && celda.firstChild ? celda.firstChild.textContent.trim() : "");
+        visor.querySelector(".visor-nombre").textContent = nombre;
+        $(visor).modal("show");
+    }
+    fotosAmpliables();
+    $(document).on("click", "img.foto-ampliable", function () { abrirFoto(this); });
+    $(document).on("keydown", "img.foto-ampliable", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirFoto(this); }
+    });
+
     // ---------- Tooltips ----------
     $('[data-toggle="tooltip"]').tooltip();
 
@@ -340,7 +388,7 @@ $(function () {
             lector.onload = function () {
                 const img = new Image();
                 img.onload = function () {
-                    const lado = Math.min(img.width, img.height), destino = 300;
+                    const lado = Math.min(img.width, img.height), destino = 600;   // 600 px: se ve nítida al ampliarla
                     const lienzo = document.createElement("canvas");
                     lienzo.width = destino; lienzo.height = destino;
                     const ctx2d = lienzo.getContext("2d");

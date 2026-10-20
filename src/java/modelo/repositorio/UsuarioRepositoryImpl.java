@@ -394,6 +394,8 @@ public class UsuarioRepositoryImpl implements UsuarioRepository {
         } else if ("BLOQUEADO".equals(filtro.getEstado())) {
             where.append("AND u.bloqueado = TRUE ");
         }
+        RepositorioUtil.filtrarFechas(where, parametros, "u.fecha_creacion", filtro.getRango());
+        where.append(' ');
 
         String sqlTotal = "SELECT COUNT(*) FROM (" + SELECT_DETALLE + where + ") x";
         String sqlPagina = SELECT_DETALLE + where + "ORDER BY u.id_usuario DESC LIMIT ? OFFSET ?";

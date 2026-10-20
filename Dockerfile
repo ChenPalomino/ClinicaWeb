@@ -1,7 +1,8 @@
 FROM tomcat:10.1-jdk17
 
-# Hora de Perú para Java (fechas de bloqueo, último acceso y reportes diarios)
-ENV JAVA_OPTS="-Duser.timezone=America/Lima"
+# Hora de Lima: el "día" de la caja (cierre diario) y las fechas de los comprobantes
+# usan la hora peruana. Java toma esta zona y la envía también a la base de datos.
+ENV TZ=America/Lima
 
 # Limpiar el directorio ROOT por defecto de Tomcat
 RUN rm -rf /usr/local/tomcat/webapps/ROOT

@@ -12,6 +12,7 @@ public class ObservadoresListener implements ServletContextListener {
     public void contextInitialized(ServletContextEvent sce) {
         EventoSubject.getInstancia().suscribir(new AuditoriaObserver());
         EventoSubject.getInstancia().suscribir(new AccesoCambiadoObserver());
-        System.out.println("ObservadoresListener: auditoría y control de accesos activados.");
+        EventoSubject.getInstancia().suscribir(new NotificadorCitasObserver());     // RF-09: avisos de citas
+        System.out.println("ObservadoresListener: auditoría, control de accesos y avisos de citas activados.");
     }
 }

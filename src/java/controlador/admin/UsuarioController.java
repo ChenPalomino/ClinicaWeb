@@ -69,7 +69,7 @@ public class UsuarioController extends HttpServlet {
                     (rol == null || rol.isBlank() || soloPersonal) ? null : entero(rol, 0),
                     request.getParameter("estado"),
                     entero(request.getParameter("pagina"), 1),
-                    soloPersonal);
+                    soloPersonal).conRango(controlador.ControladorUtil.rango(request));
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("roles", servicio.listarRoles());

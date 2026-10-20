@@ -50,7 +50,7 @@ public class ProveedorController extends HttpServlet {
                 return;
             }
             FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
-                    null, null, ControladorUtil.entero(request.getParameter("pagina"), 1));
+                    null, null, ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
         } catch (RuntimeException e) {

@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="java.util.List, java.net.URLEncoder, modelo.dto.UsuarioDTO, modelo.dto.PaginaDTO, modelo.dto.FiltroUsuarioDTO, modelo.entidades.Rol, controlador.FormatoVista" %>
+<%@ page import="java.util.List, java.net.URLEncoder, modelo.dto.UsuarioDTO, modelo.dto.PaginaDTO, modelo.dto.RangoFechasDTO, modelo.dto.FiltroUsuarioDTO, modelo.entidades.Rol, controlador.FormatoVista" %>
 <%@ include file="/WEB-INF/vistas/plantilla/cabecera.jspf" %>
 <%
     @SuppressWarnings("unchecked")
@@ -18,6 +18,8 @@
                 + (rolSel != null ? "&rol=" + rolSel : "")
                 + (filtro != null && filtro.isSoloPersonal() ? "&rol=personal" : "")
                 + (estadoSel.isEmpty() ? "" : "&estado=" + estadoSel);
+    RangoFechasDTO rangoFechas = filtro == null ? RangoFechasDTO.SIN_RANGO : filtro.getRango();
+    base += rangoFechas.parametrosUrl();   // conserva las fechas elegidas al paginar o volver
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
 %>
 
@@ -35,7 +37,7 @@
     <%-- ---------- Búsqueda y filtros ---------- --%>
     <div class="card-body border-bottom pb-2">
         <form method="GET" action="<%= ctx %>/admin/usuarios" class="form-row align-items-end" role="search">
-            <div class="col-md-5 mb-2">
+            <div class="col-md-12 col-lg-4 mb-2">
                 <label for="q" class="small text-muted mb-1">Buscar</label>
                 <div class="input-group">
                     <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-search"></i></span></div>
@@ -43,7 +45,7 @@
                            placeholder="Nombre, usuario, DNI o correo" value="<%= EscapeHtml.texto(q) %>">
                 </div>
             </div>
-            <div class="col-6 col-md-2 mb-2">
+            <div class="col-6 col-md-3 col-lg-2 mb-2">
                 <label for="rol" class="small text-muted mb-1">Rol</label>
                 <select id="rol" name="rol" class="form-control">
                     <option value="">Todos</option>
@@ -53,7 +55,7 @@
                     <% } %>
                 </select>
             </div>
-            <div class="col-6 col-md-2 mb-2">
+            <div class="col-6 col-md-3 col-lg-2 mb-2">
                 <label for="estado" class="small text-muted mb-1">Estado</label>
                 <select id="estado" name="estado" class="form-control">
                     <option value="">Todos</option>
@@ -62,13 +64,15 @@
                     <option value="INACTIVO" <%= "INACTIVO".equals(estadoSel) ? "selected" : "" %>>Desactivados</option>
                 </select>
             </div>
-            <div class="col-md-3 mb-2">
+            <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
+            <div class="col-md-12 col-lg mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Filtrar</button>
                 <% if (filtro != null && filtro.hayFiltros()) { %>
                 <a href="<%= ctx %>/admin/usuarios" class="btn btn-link">Limpiar</a>
                 <% } %>
             </div>
         </form>
+        <%@ include file="/WEB-INF/vistas/comun/aviso-rango.jspf" %>
     </div>
 
     <%-- ---------- Tabla ---------- --%>
@@ -82,7 +86,10 @@
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-user-slash text-muted"></i>
-            <% if (filtro.hayFiltros()) { %>
+            <% if (rangoFechas.isPorDefecto() && !filtro.hayFiltros()) { %>
+                <p class="mb-1"><strong>No hay registros en los últimos <%= RangoFechasDTO.DIAS_POR_DEFECTO %> días.</strong></p>
+                <p class="text-muted mb-0">Busca por nombre o DNI, o elige otras fechas arriba.</p>
+            <% } else if (filtro.hayFiltros()) { %>
                 <p class="mb-1"><strong>Ningún usuario coincide con la búsqueda.</strong></p>
                 <a href="<%= ctx %>/admin/usuarios">Quitar filtros</a>
             <% } else { %>

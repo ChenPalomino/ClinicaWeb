@@ -1,0 +1,13 @@
+<%@ page pageEncoding="UTF-8" %>
+<%--
+    Fragmento COMÚN: explica qué rango de fechas se está mostrando.
+    Por defecto un listado muestra solo los últimos 30 días (no carga todo el historial).
+--%>
+<% if (rangoFechas.isPorDefecto()) { %>
+<p class="small text-muted mb-1 aviso-rango"><i class="far fa-calendar-alt mr-1"></i>
+    Se muestran los registrados en los últimos <%= modelo.dto.RangoFechasDTO.DIAS_POR_DEFECTO %> días
+    (<%= rangoFechas.getDescripcion() %>). Para ver anteriores, busca por nombre o DNI, o elige las fechas.
+    <%= request.getAttribute("notaRango") == null ? "" : seguridad.EscapeHtml.texto((String) request.getAttribute("notaRango")) %></p>
+<% } else if (rangoFechas.isElegido()) { %>
+<p class="small text-muted mb-1 aviso-rango"><i class="far fa-calendar-alt mr-1"></i>Registrados <%= rangoFechas.getDescripcion() %>.</p>
+<% } %>

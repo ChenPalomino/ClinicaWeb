@@ -3,7 +3,8 @@
 <%-- AUDITORÍA (solo lectura): quién hizo qué y cuándo. RF-21, RNF-10, módulo 9 del curso. --%>
 <%@ include file="/WEB-INF/vistas/plantilla/cabecera.jspf" %>
 <%! private static final java.util.Set<String> ALERTAS = java.util.Set.of(
-        "USUARIO_BLOQUEADO", "CUENTA_BLOQUEADA_INTENTOS", "INICIO_FALLIDO", "SESION_EXPULSADA"); %>
+        "USUARIO_BLOQUEADO", "CUENTA_BLOQUEADA_INTENTOS", "INICIO_FALLIDO", "SESION_EXPULSADA", "PAGO_RECHAZADO",
+        "CUENTA_ANULADA"); %>
 <%
     @SuppressWarnings("unchecked")
     PaginaDTO<AuditoriaDTO> pagina = (PaginaDTO<AuditoriaDTO>) request.getAttribute("pagina");
@@ -20,7 +21,8 @@
                 + (desde.isEmpty() ? "" : "&desde=" + desde) + (hasta.isEmpty() ? "" : "&hasta=" + hasta)
                 + (idSel == null ? "" : "&id=" + idSel);
     String[][] entidades = {{"SESION", "Inicios de sesión"}, {"USUARIO", "Usuarios"}, {"PACIENTE", "Pacientes"},
-                            {"PROVEEDOR", "Proveedores"}, {"TARIFARIO", "Tarifario"}};
+                            {"PROVEEDOR", "Proveedores"}, {"TARIFARIO", "Tarifario"}, {"COBRANZA", "Caja y cobranza"},
+                            {"CITA", "Citas"}, {"MEDICO", "Médicos y horarios"}, {"CONFIGURACION", "Datos de la clínica"}};
 %>
 
 <div class="card">

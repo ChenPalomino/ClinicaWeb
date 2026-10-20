@@ -56,6 +56,7 @@ public class ProveedorRepositoryImpl implements ProveedorRepository {
             }
         }
         RepositorioUtil.filtrarEstado(where, "pr", filtro);
+        RepositorioUtil.filtrarFechas(where, parametros, "pr.fecha_creacion", filtro.getRango());
         try {
             return RepositorioUtil.paginar(conexion(), SELECT_PROVEEDOR, where.toString(), parametros,
                     "pr.razon_social", filtro, ProveedorRepositoryImpl::mapear);

@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="java.util.List, java.net.URLEncoder, modelo.dto.ProductoServicioDTO, modelo.dto.PaginaDTO, modelo.dto.FiltroBusquedaDTO, modelo.dto.OpcionDTO, controlador.FormatoVista" %>
+<%@ page import="java.util.List, java.net.URLEncoder, modelo.dto.ProductoServicioDTO, modelo.dto.PaginaDTO, modelo.dto.RangoFechasDTO, modelo.dto.FiltroBusquedaDTO, modelo.dto.OpcionDTO, controlador.FormatoVista" %>
 <%-- TARIFARIO: servicios médicos y productos con stock (solo Administrador). --%>
 <%@ include file="/WEB-INF/vistas/plantilla/cabecera.jspf" %>
 <%
@@ -18,6 +18,8 @@
     String estadoSel = filtro == null || filtro.getEstado() == null ? "" : filtro.getEstado();
     String base = "q=" + URLEncoder.encode(q, "UTF-8") + (tipoSel.isEmpty() ? "" : "&tipo=" + tipoSel)
                 + (categoriaSel != null ? "&categoria=" + categoriaSel : "") + (estadoSel.isEmpty() ? "" : "&estado=" + estadoSel);
+    RangoFechasDTO rangoFechas = filtro == null ? RangoFechasDTO.SIN_RANGO : filtro.getRango();
+    base += rangoFechas.parametrosUrl();   // conserva las fechas elegidas al paginar o volver
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
 %>
 
@@ -49,14 +51,14 @@
         </ul>
         <form method="GET" action="<%= urlLista %>" class="form-row align-items-end" role="search">
             <input type="hidden" name="tipo" value="<%= tipoSel %>">
-            <div class="col-md-5 mb-2">
+            <div class="col-md-12 col-lg-4 mb-2">
                 <label for="q" class="small text-muted mb-1">Buscar</label>
                 <div class="input-group">
                     <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-search"></i></span></div>
                     <input type="search" id="q" name="q" class="form-control" maxlength="60" placeholder="Código o nombre" value="<%= EscapeHtml.texto(q) %>">
                 </div>
             </div>
-            <div class="col-6 col-md-3 mb-2">
+            <div class="col-6 col-md-3 col-lg-2 mb-2">
                 <label for="categoria" class="small text-muted mb-1">Categoría</label>
                 <select id="categoria" name="categoria" class="form-control">
                     <option value="">Todas</option>
@@ -66,7 +68,7 @@
                     <% } %>
                 </select>
             </div>
-            <div class="col-6 col-md-2 mb-2">
+            <div class="col-6 col-md-3 col-lg-2 mb-2">
                 <label for="estado" class="small text-muted mb-1">Estado</label>
                 <select id="estado" name="estado" class="form-control">
                     <option value="">Todos</option>
@@ -74,10 +76,12 @@
                     <option value="INACTIVO" <%= "INACTIVO".equals(estadoSel) ? "selected" : "" %>>Desactivados</option>
                 </select>
             </div>
-            <div class="col-md-2 mb-2">
+            <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
+            <div class="col-md-12 col-lg mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Buscar</button>
             </div>
         </form>
+        <%@ include file="/WEB-INF/vistas/comun/aviso-rango.jspf" %>
     </div>
 
     <div class="card-body p-0">
@@ -90,7 +94,10 @@
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-notes-medical text-muted"></i>
-            <% if (filtro.hayFiltros()) { %>
+            <% if (rangoFechas.isPorDefecto() && !filtro.hayFiltros()) { %>
+                <p class="mb-1"><strong>No hay registros en los últimos <%= RangoFechasDTO.DIAS_POR_DEFECTO %> días.</strong></p>
+                <p class="text-muted mb-0">Busca por nombre o DNI, o elige otras fechas arriba.</p>
+            <% } else if (filtro.hayFiltros()) { %>
                 <p class="mb-1"><strong>Nada coincide con la búsqueda.</strong></p><a href="<%= urlLista %>">Quitar filtros</a>
             <% } else { %>
                 <p class="mb-1"><strong>El tarifario está vacío.</strong></p><a href="<%= urlLista %>?accion=nuevo&tipo=SERVICIO">Registrar el primer servicio</a>

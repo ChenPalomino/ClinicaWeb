@@ -59,7 +59,7 @@ public class PacienteController extends HttpServlet {
             }
             FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
                     ControladorUtil.enteroONulo(request.getParameter("cobertura")), null,
-                    ControladorUtil.entero(request.getParameter("pagina"), 1));
+                    ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("coberturas", servicio.coberturas());

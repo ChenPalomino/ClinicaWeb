@@ -2,6 +2,7 @@ package controlador;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import modelo.dto.RangoFechasDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,6 +51,16 @@ public final class ControladorUtil {
         } catch (DateTimeParseException e) {
             return null;
         }
+    }
+
+    /**
+     * Rango de fechas de registro de un listado (parámetros "desde" y "hasta").
+     * Sin fechas ni texto buscado = últimos 30 días (ver RangoFechasDTO).
+     */
+    public static RangoFechasDTO rango(HttpServletRequest request) {
+        String q = request.getParameter("q");
+        return RangoFechasDTO.de(fecha(request.getParameter("desde")), fecha(request.getParameter("hasta")),
+                q != null && !q.isBlank(), LocalDate.now());
     }
 
     /** error == null -> mensaje de éxito; si no, el error. */

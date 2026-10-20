@@ -46,6 +46,37 @@
     </div>
 </div>
 
+<%-- ================= Citas de hoy (todas las especialidades) ================= --%>
+<% modelo.dto.ResumenCitasDTO citasHoy = (modelo.dto.ResumenCitasDTO) request.getAttribute("resumenHoy");
+   if (citasHoy != null) { %>
+<div class="row">
+    <div class="col-md-4 animar">
+        <a href="<%= ctx %>/recepcion/citas" class="info-box text-reset">
+            <span class="info-box-icon bg-info elevation-1"><i class="fas fa-calendar-day"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Citas de hoy</span>
+                <span class="info-box-number"><%= citasHoy.getProgramadas() %></span>
+                <small class="text-muted"><%= citasHoy.getPendientes() %> por atender</small></div>
+        </a>
+    </div>
+    <div class="col-md-4 animar">
+        <a href="<%= ctx %>/recepcion/citas?estado=ATENDIDA" class="info-box text-reset">
+            <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Atendidas hoy</span>
+                <span class="info-box-number"><%= citasHoy.getAtendidas() %></span>
+                <small class="text-muted"><%= citasHoy.getNoAsistio() %> no asistieron</small></div>
+        </a>
+    </div>
+    <div class="col-md-4 animar">
+        <a href="<%= ctx %>/recepcion/citas?estado=CANCELADA" class="info-box text-reset">
+            <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-ban"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Canceladas hoy</span>
+                <span class="info-box-number"><%= citasHoy.getCanceladas() %></span>
+                <small class="text-muted">Turnos liberados</small></div>
+        </a>
+    </div>
+</div>
+<% } %>
+
 <div class="row">
     <div class="col-lg-7 animar">
         <div class="card">

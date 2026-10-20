@@ -7,7 +7,8 @@ import java.util.Set;
 public class FiltroAuditoriaDTO {
 
     public static final int TAMANIO_PAGINA = 20;
-    public static final Set<String> ENTIDADES = Set.of("SESION", "USUARIO", "PACIENTE", "PROVEEDOR", "TARIFARIO");
+    public static final Set<String> ENTIDADES = Set.of("SESION", "USUARIO", "PACIENTE", "PROVEEDOR", "TARIFARIO",
+            "COBRANZA", "CITA", "MEDICO", "CONFIGURACION");
 
     private final String texto;
     private final String entidad;

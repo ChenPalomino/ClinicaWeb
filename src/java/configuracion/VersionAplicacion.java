@@ -12,7 +12,7 @@ package configuracion;
 public final class VersionAplicacion {
 
     /** Versión que se muestra en el pie de página (ayuda a saber qué versión está corriendo). */
-    public static final String VERSION = "Etapa 5 · 2026.10.13";
+    public static final String VERSION = "Etapa 7 · 2026.10.20";
 
     /** Cambia cada vez que se inicia/despliega la aplicación. */
     public static final String RECURSOS = Long.toString(System.currentTimeMillis(), 36);

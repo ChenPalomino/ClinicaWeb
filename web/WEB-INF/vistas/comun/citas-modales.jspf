@@ -1,0 +1,72 @@
+<%@ page pageEncoding="UTF-8" %>
+<%--
+    Ventanas COMUNES del módulo de citas: cancelar (con motivos para elegir con un clic)
+    y registrar la atención del médico. Requiere: rutaCitas, motivosCancelacion (lista).
+    Toda acción importante se confirma antes (Nielsen #5, prevención de errores).
+--%>
+<%
+    @SuppressWarnings("unchecked")
+    java.util.List<String> motivosModal = (java.util.List<String>) request.getAttribute("motivosCancelacion");
+    if (motivosModal == null) motivosModal = java.util.List.of();
+    String rutaModal = (String) request.getAttribute("rutaCitas");
+%>
+<div class="modal fade" id="modalCancelarCita" tabindex="-1" role="dialog" aria-labelledby="tituloCancelarCita" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <form class="modal-content" method="POST" action="<%= rutaModal %>" id="formCancelarCita" data-un-envio>
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCancelarCita"><i class="fas fa-calendar-times text-danger mr-2"></i>Cancelar cita</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2" id="cancelarResumen"></p>
+                <p class="small text-muted mb-2">El turno quedará libre para otro paciente. ¿Por qué se cancela?</p>
+                <% int i = 0; for (String m : motivosModal) { i++; %>
+                <div class="custom-control custom-radio">
+                    <input type="radio" class="custom-control-input" id="motivoCan<%= i %>" name="motivo" value="<%= EscapeHtml.texto(m) %>">
+                    <label class="custom-control-label" for="motivoCan<%= i %>"><%= EscapeHtml.texto(m) %></label>
+                </div>
+                <% } %>
+                <div class="custom-control custom-radio">
+                    <input type="radio" class="custom-control-input" id="motivoCanOtro" name="motivo" value="OTRO">
+                    <label class="custom-control-label" for="motivoCanOtro">Otro motivo</label>
+                </div>
+                <div class="form-group mt-2 mb-0 d-none" id="motivoOtroGrupo">
+                    <label for="motivoOtro" class="sr-only">Escribe el motivo</label>
+                    <input type="text" class="form-control" id="motivoOtro" name="motivoOtro" maxlength="250" placeholder="Escribe el motivo (mínimo 5 letras)">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <input type="hidden" name="accion" value="cancelar">
+                <input type="hidden" name="id">
+                <input type="hidden" name="regreso">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Volver</button>
+                <button type="submit" class="btn btn-danger" disabled>Sí, cancelar la cita</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAtencion" tabindex="-1" role="dialog" aria-labelledby="atencionTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <form class="modal-content" method="POST" action="<%= rutaModal %>" id="formAtencion" data-un-envio>
+            <div class="modal-header">
+                <h5 class="modal-title" id="atencionTitulo">Registrar atención</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <p id="atencionResumen" class="mb-2"></p>
+                <div class="form-group mb-0" id="atencionNotaGrupo">
+                    <label for="notaAtencion" class="small text-muted">Nota breve (opcional): indicaciones, próximo control…</label>
+                    <textarea class="form-control" id="notaAtencion" name="nota" rows="3" maxlength="500"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <input type="hidden" name="accion">
+                <input type="hidden" name="id">
+                <input type="hidden" name="regreso">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Volver</button>
+                <button type="submit" class="btn btn-success" id="btnAtencion">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>

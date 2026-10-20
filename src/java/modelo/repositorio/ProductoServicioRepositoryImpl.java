@@ -78,6 +78,7 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
             parametros.add(filtro.getGrupo());
         }
         RepositorioUtil.filtrarEstado(where, "ps", filtro);
+        RepositorioUtil.filtrarFechas(where, parametros, "ps.fecha_creacion", filtro.getRango());
         try {
             return RepositorioUtil.paginar(conexion(), SELECT_ITEM, where.toString(), parametros,
                     "ps.tipo DESC, ps.codigo", filtro, ProductoServicioRepositoryImpl::mapear);

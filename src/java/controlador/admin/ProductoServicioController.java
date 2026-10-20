@@ -62,7 +62,7 @@ public class ProductoServicioController extends HttpServlet {
             }
             FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
                     ControladorUtil.enteroONulo(request.getParameter("categoria")), request.getParameter("tipo"),
-                    ControladorUtil.entero(request.getParameter("pagina"), 1));
+                    ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("categorias", servicio.categorias());

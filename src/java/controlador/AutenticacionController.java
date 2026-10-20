@@ -11,6 +11,7 @@ import modelo.entidades.Usuario;
 import modelo.servicios.RecuperacionService;
 import seguridad.AutenticacionException;
 import seguridad.AutenticacionProxy;
+import seguridad.SesionPorPestanaFilter;
 
 import java.io.IOException;
 
@@ -36,15 +37,21 @@ public class AutenticacionController extends HttpServlet {
         String login = request.getContextPath() + "/jsp/login.jsp?tipo=" + tipo;
         String jsp = request.getContextPath() + "/jsp/";
 
+        // Sin identificador de pestaña (JavaScript desactivado o página muy antigua) no se inicia sesión:
+        // la cuenta quedaría compartida por todas las pestañas nuevas del navegador.
+        if (SesionPorPestanaFilter.idPestana(request) == null) {
+            response.sendRedirect(login + "&error=pestana");
+            return;
+        }
+
         try {
             Usuario usuario = new AutenticacionProxy().intentarAcceso(nombreUsuario, password);
 
-            // Se descarta la sesión anterior y se crea una nueva (evita robo de sesión)
-            HttpSession anterior = request.getSession(false);
-            if (anterior != null) {
-                anterior.invalidate();
-            }
+            // Se limpian los datos que tuviera ESTA pestaña (las demás pestañas no se tocan)
+            // y se cambia el identificador de la sesión (evita el robo de sesión / session fixation).
             HttpSession session = request.getSession(true);
+            session.invalidate();
+            request.changeSessionId();
             session.setAttribute("usuarioLogueado", usuario);
             session.setMaxInactiveInterval(MINUTOS_SESION * 60);
             // Nombre, foto y datos para mostrar en el dashboard (en vez del DNI)
@@ -85,7 +92,7 @@ public class AutenticacionController extends HttpServlet {
         }
     }
 
-    /** GET ?accion=salir -> cierra la sesión. Cualquier otro GET va al login. */
+    /** GET ?accion=salir -> cierra la sesión de ESTA pestaña (las demás siguen abiertas). Cualquier otro GET va al login. */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {

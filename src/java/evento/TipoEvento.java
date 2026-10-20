@@ -36,7 +36,26 @@ public enum TipoEvento {
     ITEM_REGISTRADO("TARIFARIO", "Agregó al tarifario"),
     ITEM_EDITADO("TARIFARIO", "Editó el tarifario"),
     ITEM_DESACTIVADO("TARIFARIO", "Desactivó del tarifario"),
-    ITEM_REACTIVADO("TARIFARIO", "Reactivó en el tarifario");
+    ITEM_REACTIVADO("TARIFARIO", "Reactivó en el tarifario"),
+    // Cobranza en caja (Etapa 6)
+    CUENTA_ABIERTA("COBRANZA", "Abrió una cuenta de atención"),
+    PAGO_REGISTRADO("COBRANZA", "Cobró y emitió comprobante"),
+    PAGO_RECHAZADO("COBRANZA", "Pago rechazado"),
+    CUENTA_ANULADA("COBRANZA", "Anuló una cuenta"),
+    CAJA_CERRADA("COBRANZA", "Cerró su caja"),
+    // Citas médicas (PP-01, RF-21)
+    CITA_RESERVADA("CITA", "Reservó una cita"),
+    CITA_REPROGRAMADA("CITA", "Reprogramó una cita"),
+    CITA_CANCELADA("CITA", "Canceló una cita"),
+    CITA_LLEGADA("CITA", "Registró la llegada del paciente"),
+    CITA_ATENDIDA("CITA", "Registró la atención de una cita"),
+    CITA_NO_ASISTIO("CITA", "Marcó que el paciente no asistió"),
+    // Médicos y horarios (RF-03)
+    MEDICO_EDITADO("MEDICO", "Editó los datos y el horario de un médico"),
+    MEDICO_PAUSADO("MEDICO", "Pausó las citas de un médico"),
+    MEDICO_REANUDADO("MEDICO", "Reanudó las citas de un médico"),
+    // Configuración
+    PARAMETROS_EDITADOS("CONFIGURACION", "Editó los datos de la clínica");
 
     private final String entidad;
     private final String descripcion;

@@ -86,6 +86,7 @@ public class PacienteRepositoryImpl implements PacienteRepository {
             parametros.add(filtro.getGrupo());
         }
         RepositorioUtil.filtrarEstado(where, "p", filtro);
+        RepositorioUtil.filtrarFechas(where, parametros, "p.fecha_creacion", filtro.getRango());
         try {
             return RepositorioUtil.paginar(conexion(), SELECT_PACIENTE, where.toString(), parametros,
                     "d.apellidos, d.nombres", filtro, PacienteRepositoryImpl::mapear);

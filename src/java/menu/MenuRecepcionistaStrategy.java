@@ -20,8 +20,9 @@ public class MenuRecepcionistaStrategy implements MenuStrategy {
         return List.of(
                 new OpcionMenu("PRINCIPAL", "Inicio", "fas fa-home", "/panel", "inicio", true),
                 new OpcionMenu("ADMISIÓN", "Pacientes", "fas fa-user-injured", "/recepcion/pacientes", "pacientes", true),
-                OpcionMenu.proximamente("ADMISIÓN", "Citas", "fas fa-calendar-check"),
-                OpcionMenu.proximamente("CAJA", "Cobros", "fas fa-cash-register"),
+                new OpcionMenu("ADMISIÓN", "Citas", "fas fa-calendar-check", "/recepcion/citas", "citas", true),
+                new OpcionMenu("CAJA", "Cobros", "fas fa-cash-register", "/caja/cuentas", "cobros", true),
+                new OpcionMenu("CAJA", "Cierre de caja", "fas fa-lock", "/caja/cierre", "cierre", true),
                 new OpcionMenu("MI CUENTA", "Mi perfil y ajustes", "fas fa-user-circle", "/perfil", "perfil", true)
         );
     }
