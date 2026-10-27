@@ -10,6 +10,11 @@ public class ObservadoresListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
+        try {
+            new modelo.repositorio.AuditoriaRepositoryImpl().sincronizarAcciones();
+        } catch (RuntimeException e) {
+            System.err.println("ObservadoresListener: no se pudo sincronizar el catálogo de acciones -> " + e.getMessage());
+        }
         EventoSubject.getInstancia().suscribir(new AuditoriaObserver());
         EventoSubject.getInstancia().suscribir(new AccesoCambiadoObserver());
         EventoSubject.getInstancia().suscribir(new NotificadorCitasObserver());     // RF-09: avisos de citas

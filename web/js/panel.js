@@ -196,7 +196,7 @@ $(function () {
             const v = valorDe(control);
             let primeraVisible = null;
             Array.prototype.forEach.call(lista.options, function (op) {
-                const visible = !op.dataset.extra || op.dataset.extra === v;
+                const visible = !op.dataset.extra || !v || op.dataset.extra === v;
                 op.hidden = !visible; op.disabled = !visible;
                 if (visible && op.value && !primeraVisible) primeraVisible = op;
             });
@@ -372,6 +372,55 @@ $(function () {
         campo.addEventListener("input", actualizar);
         actualizar();
     });
+
+    // ---------- Copiar un dato (celular de la clínica, etc.) ----------
+    document.querySelectorAll("[data-copiar]").forEach(function (b) {
+        b.addEventListener("click", function () {
+            const original = b.innerHTML;
+            const listo = function () { b.textContent = "Copiado"; setTimeout(function () { b.innerHTML = original; }, 1600); };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(b.dataset.copiar).then(listo, function () {});
+        });
+    });
+
+    // ---------- QR de pago: se reduce en el navegador sin perder nitidez (PNG) ----------
+    const archivoQr = document.getElementById("archivoQr");
+    if (archivoQr) {
+        const errorQr = document.getElementById("errorQr");
+        const btnQr = document.getElementById("btnGuardarQr");
+        archivoQr.addEventListener("change", function () {
+            const archivo = archivoQr.files[0];
+            errorQr.textContent = "";
+            btnQr.disabled = true;
+            if (!archivo) return;
+            if (!/^image\/(jpeg|png|webp)$/.test(archivo.type)) { errorQr.textContent = "Elige una imagen PNG, JPG o WEBP."; return; }
+            const lector = new FileReader();
+            lector.onload = function () {
+                const img = new Image();
+                img.onload = function () {
+                    const escala = Math.min(1, 700 / Math.max(img.width, img.height));
+                    const lienzo = document.createElement("canvas");
+                    lienzo.width = Math.round(img.width * escala); lienzo.height = Math.round(img.height * escala);
+                    const c2 = lienzo.getContext("2d");
+                    c2.fillStyle = "#ffffff"; c2.fillRect(0, 0, lienzo.width, lienzo.height);
+                    c2.imageSmoothingEnabled = false;
+                    c2.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+                    const dataUrl = lienzo.toDataURL("image/png");
+                    if (dataUrl.length * 0.75 > 400000) { errorQr.textContent = "La imagen sigue siendo pesada. Recórtala para que se vea solo el QR."; return; }
+                    document.getElementById("qrDatos").value = dataUrl;
+                    const vista = document.getElementById("vistaQr");
+                    vista.innerHTML = "";
+                    const previa = document.createElement("img");
+                    previa.src = dataUrl; previa.alt = "Vista previa del nuevo QR"; previa.className = "img-fluid qr-imagen my-2";
+                    vista.appendChild(previa);
+                    btnQr.disabled = false;
+                    btnQr.focus();
+                };
+                img.onerror = function () { errorQr.textContent = "No pudimos leer la imagen. Prueba con otra."; };
+                img.src = lector.result;
+            };
+            lector.readAsDataURL(archivo);
+        });
+    }
 
     // ---------- Foto de perfil: recorte cuadrado 300x300 en el navegador ----------
     const archivoFoto = document.getElementById("archivoFoto");

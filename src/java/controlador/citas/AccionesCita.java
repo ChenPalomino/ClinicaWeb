@@ -27,24 +27,40 @@ public final class AccionesCita {
     public AccionesCita(CitaDTO c, Usuario u, LocalDateTime ahora, int horasCancelacion) {
         boolean personal = u.getRolId() == Rol.ADMINISTRADOR || u.getRolId() == Rol.RECEPCIONISTA;
         boolean paciente = u.getRolId() == Rol.PACIENTE;
-        boolean suMedico = u.getRolId() == Rol.MEDICO && c.getIdUsuarioMedico() == u.getIdUsuario();
-        boolean medicoOAdmin = suMedico || u.getRolId() == Rol.ADMINISTRADOR;
+        boolean medicoOAdmin = (u.getRolId() == Rol.MEDICO && c.getIdUsuarioMedico() == u.getIdUsuario())
+                || u.getRolId() == Rol.ADMINISTRADOR;
         this.llegada = personal && ReglasCita.puedeRegistrarLlegada(c, ahora.toLocalDate());
         this.cobrar = personal && ReglasCita.puedeCobrar(c);
         this.verCuenta = personal && c.isTieneCuenta();
-        this.reprogramar = personal ? ReglasCita.personalPuedeReprogramar(c, ahora)
-                         : paciente && ReglasCita.pacientePuedeReprogramar(c, ahora, horasCancelacion);
-        this.cancelar = personal ? ReglasCita.personalPuedeCancelar(c, ahora.toLocalDate())
-                      : paciente && ReglasCita.pacientePuedeCambiar(c, ahora, horasCancelacion);
+        this.reprogramar = puedeReprogramar(c, personal, paciente, ahora, horasCancelacion);
+        this.cancelar = puedeCancelar(c, personal, paciente, ahora, horasCancelacion);
         this.atender = medicoOAdmin && ReglasCita.puedeMarcarAtendida(c, ahora.toLocalDate());
         this.noAsistio = medicoOAdmin && ReglasCita.puedeMarcarNoAsistio(c, ahora);
         this.verNota = medicoOAdmin;
-        String bloqueo = paciente ? ReglasCita.motivoBloqueoPaciente(c, ahora, horasCancelacion) : null;
-        if (paciente && bloqueo == null && c.isReservada() && !reprogramar) {
-            bloqueo = "Ya cambiaste esta cita " + ReglasCita.MAXIMO_REPROGRAMACIONES_PACIENTE
+        this.bloqueoPaciente = paciente ? bloqueo(c, ahora, horasCancelacion, reprogramar) : null;
+    }
+
+    private static boolean puedeReprogramar(CitaDTO c, boolean personal, boolean paciente, LocalDateTime ahora, int horas) {
+        if (personal) {
+            return ReglasCita.personalPuedeReprogramar(c, ahora);
+        }
+        return paciente && ReglasCita.pacientePuedeReprogramar(c, ahora, horas);
+    }
+
+    private static boolean puedeCancelar(CitaDTO c, boolean personal, boolean paciente, LocalDateTime ahora, int horas) {
+        if (personal) {
+            return ReglasCita.personalPuedeCancelar(c, ahora.toLocalDate());
+        }
+        return paciente && ReglasCita.pacientePuedeCambiar(c, ahora, horas);
+    }
+
+    private static String bloqueo(CitaDTO c, LocalDateTime ahora, int horas, boolean puedeReprogramar) {
+        String motivo = ReglasCita.motivoBloqueoPaciente(c, ahora, horas);
+        if (motivo == null && c.isReservada() && !puedeReprogramar) {
+            return "Ya cambiaste esta cita " + ReglasCita.MAXIMO_REPROGRAMACIONES_PACIENTE
                     + " veces: si necesitas otro horario, llama a recepción (o cancélala y reserva otra).";
         }
-        this.bloqueoPaciente = bloqueo;
+        return motivo;
     }
 
     public boolean isLlegada() { return llegada; }

@@ -51,7 +51,13 @@ public class MedicoController extends HttpServlet {
                 mostrarFormulario(request, response, servicio, m.get(), Map.of());
                 return;
             }
-            request.setAttribute("medicos", servicio.listar());
+            request.setAttribute("especialidades", servicio.especialidades());
+            if (ControladorUtil.busquedaSolicitada(request)) {
+                String estado = request.getParameter("estado");
+                request.setAttribute("medicos", servicio.buscar(request.getParameter("q"),
+                        ControladorUtil.enteroONulo(request.getParameter("especialidad")),
+                        estado == null || estado.isBlank() ? null : estado));
+            }
         } catch (RuntimeException e) {
             System.err.println("MedicoController: " + e.getMessage());
             request.setAttribute("errorDatos", true);
@@ -82,6 +88,7 @@ public class MedicoController extends HttpServlet {
         String accion = request.getParameter("accion");
         // "u" desde el formulario; "id" desde la ventana de confirmación común (pausar / reanudar)
         int idUsuario = ControladorUtil.entero(request.getParameter("u"), ControladorUtil.entero(request.getParameter("id"), 0));
+        String volver = request.getContextPath() + RUTA + ControladorUtil.regresoListado(request);
         try {
             if ("guardar".equals(accion)) {
                 Optional<MedicoDTO> actual = servicio.obtenerPorUsuario(idUsuario);
@@ -104,6 +111,8 @@ public class MedicoController extends HttpServlet {
                     MensajeFlash.exito(session, "Datos y horario de " + form.getNombreCompleto()
                             + " guardados. Ya puede recibir citas en esos horarios.");
                 }
+                volver = request.getContextPath() + RUTA + "?q=" + java.net.URLEncoder.encode(
+                        actual.get().getNombreUsuario(), java.nio.charset.StandardCharsets.UTF_8);
             } else if ("pausar".equals(accion) || "reanudar".equals(accion)) {
                 boolean activar = "reanudar".equals(accion);
                 ControladorUtil.resultado(session, servicio.cambiarEstado(idUsuario, activar, admin),
@@ -115,7 +124,7 @@ public class MedicoController extends HttpServlet {
             System.err.println("MedicoController: " + e.getMessage());
             MensajeFlash.error(session, "No se pudo guardar. Inténtalo de nuevo en unos minutos.");
         }
-        response.sendRedirect(request.getContextPath() + RUTA);
+        response.sendRedirect(volver);
     }
 
     /** Lee el formulario: datos profesionales + hasta 2 bloques por día (d1_on, d1_i1, d1_f1, d1_i2, d1_f2...). */

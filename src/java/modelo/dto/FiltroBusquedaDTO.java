@@ -21,7 +21,7 @@ public class FiltroBusquedaDTO {
     private final int pagina;
     private RangoFechasDTO rango = RangoFechasDTO.SIN_RANGO;
 
-    private static final java.util.Set<String> ESTADOS = java.util.Set.of("ACTIVO", "INACTIVO", "PENDIENTE", "PAGADA", "ANULADA");
+    private static final java.util.Set<String> ESTADOS = java.util.Set.of("ACTIVO", "INACTIVO", "PENDIENTE", "PAGADA", "ANULADA", "REPONER");
 
     public FiltroBusquedaDTO(String texto, String estado, Integer grupo, String tipo, int pagina) {
         this.texto = (texto == null || texto.isBlank()) ? null : texto.trim();

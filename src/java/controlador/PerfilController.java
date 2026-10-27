@@ -53,6 +53,46 @@ public class PerfilController extends HttpServlet {
                 tab != null && PESTANAS.contains(tab) ? tab : "datos", Map.of());
     }
 
+    private static void cambiarTema(HttpServletRequest request, HttpServletResponse response, PerfilService servicio, Usuario usuario) {
+        try {
+            boolean ok = servicio.cambiarTema(usuario, request.getParameter("tema"));
+            if (ok) {
+                cargarEnSesion(request.getSession(), usuario.getIdUsuario());
+            }
+            response.setStatus(ok ? HttpServletResponse.SC_NO_CONTENT : HttpServletResponse.SC_BAD_REQUEST);
+        } catch (RuntimeException e) {
+            System.err.println("PerfilController (tema): " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /** @return true si se guardó; false si ya se mostró el formulario con errores. */
+    private boolean guardarDatos(HttpServletRequest request, HttpServletResponse response, PerfilService servicio, Usuario usuario)
+            throws ServletException, IOException {
+        PerfilDTO form = new PerfilDTO();
+        form.setNombres(request.getParameter("nombres"));
+        form.setApellidos(request.getParameter("apellidos"));
+        form.setDni(request.getParameter("dni"));
+        form.setCorreo(request.getParameter("correo"));
+        form.setCelular(request.getParameter("celular"));
+        form.setDescripcion(request.getParameter("descripcion"));
+        form.setIdSexo(ControladorUtil.enteroONulo(request.getParameter("idSexo")));
+        form.setFechaNacimiento(ControladorUtil.fecha(request.getParameter("fechaNacimiento")));
+        Map<String, String> errores = servicio.actualizarDatos(usuario, form);
+        if (errores.isEmpty()) {
+            return true;
+        }
+        PerfilDTO actual = cargarEnSesion(request.getSession(), usuario.getIdUsuario());
+        form.setNombreUsuario(actual.getNombreUsuario());
+        form.setTieneFoto(actual.isTieneFoto());
+        form.setFotoVersion(actual.getFotoVersion());
+        if (actual.isTieneDatosPersonales()) form.setDni(actual.getDni());
+        form.setNumeroHistoria(actual.getNumeroHistoria());
+        form.setNombreCobertura(actual.getNombreCobertura());
+        mostrar(request, response, form, "datos", errores);
+        return false;
+    }
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -65,55 +105,23 @@ public class PerfilController extends HttpServlet {
 
         // Apariencia: llamada en segundo plano (fetch), responde sin redirigir
         if ("tema".equals(accion)) {
-            try {
-                boolean ok = servicio.cambiarTema(usuario, request.getParameter("tema"));
-                if (ok) {
-                    cargarEnSesion(session, usuario.getIdUsuario());
-                }
-                response.setStatus(ok ? HttpServletResponse.SC_NO_CONTENT : HttpServletResponse.SC_BAD_REQUEST);
-            } catch (RuntimeException e) {
-                System.err.println("PerfilController (tema): " + e.getMessage());
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            }
+            cambiarTema(request, response, servicio, usuario);
             return;
         }
 
         try {
             switch (accion == null ? "" : accion) {
-                case "datos": {
-                    PerfilDTO form = new PerfilDTO();
-                    form.setNombres(request.getParameter("nombres"));
-                    form.setApellidos(request.getParameter("apellidos"));
-                    form.setDni(request.getParameter("dni"));
-                    form.setCorreo(request.getParameter("correo"));
-                    form.setCelular(request.getParameter("celular"));
-                    form.setDescripcion(request.getParameter("descripcion"));
-                    form.setIdSexo(ControladorUtil.enteroONulo(request.getParameter("idSexo")));
-                    form.setFechaNacimiento(ControladorUtil.fecha(request.getParameter("fechaNacimiento")));
-                    Map<String, String> errores = servicio.actualizarDatos(usuario, form);
-                    if (!errores.isEmpty()) {
-                        // Se vuelve a mostrar lo que escribió, con los errores
-                        PerfilDTO actual = cargarEnSesion(session, usuario.getIdUsuario());
-                        form.setNombreUsuario(actual.getNombreUsuario());
-                        form.setTieneFoto(actual.isTieneFoto());
-                        form.setFotoVersion(actual.getFotoVersion());
-                        if (actual.isTieneDatosPersonales()) form.setDni(actual.getDni());
-                        form.setNumeroHistoria(actual.getNumeroHistoria());
-                        form.setNombreCobertura(actual.getNombreCobertura());
-                        mostrar(request, response, form, "datos", errores);
+                case "datos":
+                    if (!guardarDatos(request, response, servicio, usuario)) {
                         return;
                     }
                     MensajeFlash.exito(session, "Tus datos se guardaron correctamente.");
                     volver += "?tab=datos";
                     break;
-                }
-                case "foto": {
-                    String error = servicio.guardarFoto(usuario, request.getParameter("foto"));
-                    if (error == null) MensajeFlash.exito(session, "Foto de perfil actualizada.");
-                    else MensajeFlash.error(session, error);
+                case "foto":
+                    ControladorUtil.resultado(session, servicio.guardarFoto(usuario, request.getParameter("foto")), "Foto de perfil actualizada.");
                     volver += "?tab=foto";
                     break;
-                }
                 case "quitarFoto":
                     servicio.eliminarFoto(usuario);
                     MensajeFlash.exito(session, "Quitaste tu foto de perfil. Ahora se mostrarán tus iniciales.");

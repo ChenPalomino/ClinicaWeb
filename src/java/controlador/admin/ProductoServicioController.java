@@ -60,12 +60,15 @@ public class ProductoServicioController extends HttpServlet {
                 mostrarFormulario(request, response, servicio, p.get(), Map.of());
                 return;
             }
-            FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
-                    ControladorUtil.enteroONulo(request.getParameter("categoria")), request.getParameter("tipo"),
-                    ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
-            request.setAttribute("filtro", filtro);
-            request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("categorias", servicio.categorias());
+            if (ControladorUtil.busquedaSolicitada(request)) {
+                FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
+                        ControladorUtil.enteroONulo(request.getParameter("categoria")), request.getParameter("tipo"),
+                        ControladorUtil.entero(request.getParameter("pagina"), 1))
+                        .conRango(ControladorUtil.rango(request, "tipo", "categoria", "estado"));
+                request.setAttribute("filtro", filtro);
+                request.setAttribute("pagina", servicio.listar(filtro));
+            }
             request.setAttribute("stockBajo", servicio.contarStockBajo());
         } catch (RuntimeException e) {
             System.err.println("ProductoServicioController: " + e.getMessage());
@@ -97,7 +100,8 @@ public class ProductoServicioController extends HttpServlet {
                     }
                     MensajeFlash.exito(session, "«" + p.getNombre() + "» (" + p.getCodigo() + ") "
                             + (nuevo ? "registrado en el tarifario." : "actualizado."));
-                    response.sendRedirect(request.getContextPath() + RUTA + "?tipo=" + p.getTipo());
+                    response.sendRedirect(request.getContextPath() + RUTA + "?tipo=" + p.getTipo() + "&q="
+                            + java.net.URLEncoder.encode(p.getCodigo(), java.nio.charset.StandardCharsets.UTF_8));
                     return;
                 }
                 case "desactivar":

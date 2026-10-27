@@ -47,6 +47,7 @@
         <url-pattern>/panel</url-pattern>
         <url-pattern>/perfil</url-pattern>
         <url-pattern>/foto</url-pattern>
+        <url-pattern>/qr-pago</url-pattern>
     </filter-mapping>
     <filter-mapping>
         <filter-name>AutorizacionFilter</filter-name>

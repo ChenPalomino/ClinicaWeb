@@ -29,9 +29,11 @@ public class MenuAdministradorStrategy implements MenuStrategy {
                 new OpcionMenu("CLÍNICA", "Proveedores", "fas fa-truck", "/admin/proveedores", "proveedores", true),
                 new OpcionMenu("CLÍNICA", "Citas", "fas fa-calendar-check", "/recepcion/citas", "citas", true),
                 new OpcionMenu("CLÍNICA", "Médicos y horarios", "fas fa-user-md", "/admin/medicos", "medicos", true),
+                new OpcionMenu("CLÍNICA", "Especialidades", "fas fa-stethoscope", "/admin/especialidades", "especialidades", true),
                 new OpcionMenu("CAJA", "Cobros", "fas fa-cash-register", "/caja/cuentas", "cobros", true),
                 new OpcionMenu("CAJA", "Cierres de caja", "fas fa-lock", "/caja/cierre", "cierre", true),
-                OpcionMenu.proximamente("ANÁLISIS", "Reportes", "fas fa-chart-bar"),
+                new OpcionMenu("CAJA", "Billeteras y QR", "fas fa-qrcode", "/admin/billeteras", "billeteras", true),
+                new OpcionMenu("ANÁLISIS", "Indicadores", "fas fa-chart-bar", "/panel#indicadores", "indicadores", true),
                 new OpcionMenu("MI CUENTA", "Mi perfil y ajustes", "fas fa-user-circle", "/perfil", "perfil", true)
         );
     }

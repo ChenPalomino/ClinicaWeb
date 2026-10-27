@@ -22,7 +22,7 @@ public class AuditoriaRepositoryImpl implements AuditoriaRepository {
     private static final String SELECT_AUDITORIA =
           "SELECT a.id_auditoria, a.fecha_creacion, a.usuario_registro, a.accion, a.entidad, a.id_entidad, "
         + "       a.detalle, a.direccion_ip "
-        + "FROM tt_auditoria a ";
+        + "FROM vw_auditoria a ";
 
     private Connection conexion() throws SQLException {
         return ConexionBDSingleton.getInstancia().getConexion();
@@ -44,17 +44,16 @@ public class AuditoriaRepositoryImpl implements AuditoriaRepository {
 
     @Override
     public void registrar(EventoSistema e) {
-        String sql = "INSERT INTO tt_auditoria (id_usuario, accion, entidad, id_entidad, detalle, direccion_ip, "
-                   + "                          fecha_creacion, usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO tt_auditoria (id_usuario, accion, id_entidad, detalle, direccion_ip, "
+                   + "                          fecha_creacion, usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
             RepositorioUtil.enteroONulo(stmt, 1, e.getIdUsuario());
             stmt.setString(2, e.getTipo().name());
-            stmt.setString(3, e.getTipo().getEntidad());
-            RepositorioUtil.enteroONulo(stmt, 4, e.getIdEntidad());
-            RepositorioUtil.textoONulo(stmt, 5, e.getDetalle());
-            RepositorioUtil.textoONulo(stmt, 6, e.getDireccionIp());
-            stmt.setTimestamp(7, Timestamp.valueOf(e.getFecha()));
-            stmt.setString(8, e.getNombreUsuario() == null ? "sistema" : e.getNombreUsuario());
+            RepositorioUtil.enteroONulo(stmt, 3, e.getIdEntidad());
+            RepositorioUtil.textoONulo(stmt, 4, e.getDetalle());
+            RepositorioUtil.textoONulo(stmt, 5, e.getDireccionIp());
+            stmt.setTimestamp(6, Timestamp.valueOf(e.getFecha()));
+            stmt.setString(7, e.getNombreUsuario() == null ? "sistema" : e.getNombreUsuario());
             stmt.executeUpdate();
         } catch (SQLException ex) {
             throw new RepositorioException("Error al registrar la auditoría", ex);
@@ -90,7 +89,7 @@ public class AuditoriaRepositoryImpl implements AuditoriaRepository {
         try {
             Connection cn = conexion();
             int total;
-            try (PreparedStatement stmt = cn.prepareStatement("SELECT COUNT(*) FROM tt_auditoria a " + where)) {
+            try (PreparedStatement stmt = cn.prepareStatement("SELECT COUNT(*) FROM vw_auditoria a " + where)) {
                 RepositorioUtil.asignar(stmt, parametros);
                 try (ResultSet rs = stmt.executeQuery()) {
                     rs.next();
@@ -112,6 +111,29 @@ public class AuditoriaRepositoryImpl implements AuditoriaRepository {
             return new PaginaDTO<>(elementos, total, f.getPagina(), f.getTamanio());
         } catch (SQLException e) {
             throw new RepositorioException("Error al leer la auditoría", e);
+        }
+    }
+
+    @Override
+    public void sincronizarAcciones() {
+        String sql = "INSERT INTO tm_accion_auditoria (codigo, entidad, descripcion, usuario_registro) VALUES (?, ?, ?, 'sistema') "
+                   + "ON CONFLICT (codigo) DO UPDATE SET entidad = EXCLUDED.entidad, descripcion = EXCLUDED.descripcion";
+        try (Connection cn = ConexionBDSingleton.getInstancia().abrirConexionTransaccional()) {
+            try (PreparedStatement stmt = cn.prepareStatement(sql)) {
+                for (TipoEvento t : TipoEvento.values()) {
+                    stmt.setString(1, t.name());
+                    stmt.setString(2, t.getEntidad());
+                    stmt.setString(3, t.getDescripcion());
+                    stmt.addBatch();
+                }
+                stmt.executeBatch();
+                cn.commit();
+            } catch (SQLException e) {
+                cn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al registrar las acciones de auditoría", e);
         }
     }
 

@@ -57,6 +57,10 @@ public class CitaDTO {
     private int idCuentaAtencion;
     private String estadoCuenta = "";
     private String numeroCuenta = "";
+    private java.math.BigDecimal totalCuenta = java.math.BigDecimal.ZERO;
+    private String estadoReportePago = "";
+    private String motivoReportePago = "";
+    private PrecioConsultaDTO precioConsulta = PrecioConsultaDTO.SIN_PRECIO;
     private Timestamp fechaCreacion;
     private String usuarioRegistro = "";
 
@@ -73,6 +77,13 @@ public class CitaDTO {
     public boolean isDelPortal() { return CANAL_PORTAL.equals(canal); }
     public boolean isTieneCuenta() { return idCuentaAtencion > 0 && !"ANULADA".equals(estadoCuenta); }
     public boolean isCuentaPagada() { return "PAGADA".equals(estadoCuenta); }
+    public boolean isPagoEnRevision() { return "PENDIENTE".equals(estadoReportePago) && !isCuentaPagada(); }
+    public boolean isPagoRechazado() { return "RECHAZADO".equals(estadoReportePago) && !isCuentaPagada(); }
+    public boolean isPuedePagarEnLinea() { return isActiva() && !isCuentaPagada() && !isPagoEnRevision() && getPrecioConsulta() != null && getPrecioConsulta().isDefinido(); }
+    public String getEstadoReportePago() { return estadoReportePago; }
+    public void setEstadoReportePago(String v) { estadoReportePago = limpio(v); }
+    public String getMotivoReportePago() { return motivoReportePago; }
+    public void setMotivoReportePago(String v) { motivoReportePago = limpio(v); }
 
     public LocalDateTime getInicio() { return fecha.atTime(horaInicio); }
     public LocalDateTime getFin() { return fecha.atTime(horaFin); }
@@ -193,6 +204,10 @@ public class CitaDTO {
     public void setEstadoCuenta(String v) { estadoCuenta = limpio(v); }
     public String getNumeroCuenta() { return numeroCuenta; }
     public void setNumeroCuenta(String v) { numeroCuenta = limpio(v); }
+    public java.math.BigDecimal getTotalCuenta() { return totalCuenta; }
+    public void setTotalCuenta(java.math.BigDecimal v) { totalCuenta = v == null ? java.math.BigDecimal.ZERO : v; }
+    public PrecioConsultaDTO getPrecioConsulta() { return precioConsulta; }
+    public void setPrecioConsulta(PrecioConsultaDTO v) { precioConsulta = v == null ? PrecioConsultaDTO.SIN_PRECIO : v; }
     public Timestamp getFechaCreacion() { return fechaCreacion; }
     public void setFechaCreacion(Timestamp v) { fechaCreacion = v; }
     public String getUsuarioRegistro() { return usuarioRegistro; }

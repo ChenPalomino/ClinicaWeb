@@ -57,6 +57,7 @@ public class MedicoService {
     }
 
     public List<MedicoDTO> listar() { return medicos.listarTodos(); }
+    public List<MedicoDTO> buscar(String texto, Integer idEspecialidad, String estado) { return medicos.buscar(texto, idEspecialidad, estado); }
     public Optional<MedicoDTO> obtenerPorUsuario(int idUsuario) { return medicos.buscarPorUsuario(idUsuario); }
     public List<OpcionDTO> especialidades() { return catalogos.listarEspecialidades(); }
 

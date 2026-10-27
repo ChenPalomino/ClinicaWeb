@@ -62,31 +62,15 @@ public class PacienteService {
     public Map<String, String> guardar(PacienteDTO p, Usuario sesion) {
         normalizar(p);
         Map<String, String> errores = new LinkedHashMap<>();
-        Optional<PacienteDTO> antes = Optional.empty();
-        if (!p.isNuevo()) {
-            antes = pacienteRepository.buscarPorId(p.getIdPaciente());
-            if (antes.isEmpty()) {
-                errores.put("general", "El paciente ya no existe. Actualiza la lista e inténtalo de nuevo.");
-                return errores;
-            }
-            p.setIdDatosPersonales(antes.get().getIdDatosPersonales());
-            if (!puedeCorregirIdentidad(sesion)) {
-                // Recepción no cambia identidad ni estado aunque modifique el formulario a mano
-                p.setDni(antes.get().getDni());
-                p.setNombres(antes.get().getNombres());
-                p.setApellidos(antes.get().getApellidos());
-                p.setEstado(antes.get().getEstado());
-            }
+        Optional<PacienteDTO> antes = p.isNuevo() ? Optional.empty() : pacienteRepository.buscarPorId(p.getIdPaciente());
+        if (!p.isNuevo() && antes.isEmpty()) {
+            errores.put("general", "El paciente ya no existe. Actualiza la lista e inténtalo de nuevo.");
+            return errores;
         }
+        antes.ifPresent(a -> conservarIdentidad(p, a, sesion));
         errores.putAll(validar(p));
         if (errores.isEmpty()) {
-            Optional<String> historia = pacienteRepository.historiaConDni(p.getDni(), p.getIdPaciente());
-            if (historia.isPresent()) {
-                errores.put("dni", "Ese DNI ya es del paciente con historia " + historia.get() + ". Búscalo en la lista.");
-            }
-            if (!p.getCorreo().isEmpty() && pacienteRepository.existeCorreoDeOtraPersona(p.getCorreo(), p.getDni())) {
-                errores.put("correo", "Ese correo ya está registrado para otra persona.");
-            }
+            validarDuplicados(p, errores);
         }
         if (!errores.isEmpty()) {
             return errores;
@@ -103,6 +87,28 @@ public class PacienteService {
                     cambios(antes.get(), p));
         }
         return errores;
+    }
+
+    /** Recepción no cambia identidad ni estado aunque modifique el formulario a mano. */
+    private static void conservarIdentidad(PacienteDTO p, PacienteDTO antes, Usuario sesion) {
+        p.setIdDatosPersonales(antes.getIdDatosPersonales());
+        if (puedeCorregirIdentidad(sesion)) {
+            return;
+        }
+        p.setDni(antes.getDni());
+        p.setNombres(antes.getNombres());
+        p.setApellidos(antes.getApellidos());
+        p.setEstado(antes.getEstado());
+    }
+
+    private void validarDuplicados(PacienteDTO p, Map<String, String> errores) {
+        Optional<String> historia = pacienteRepository.historiaConDni(p.getDni(), p.getIdPaciente());
+        if (historia.isPresent()) {
+            errores.put("dni", "Ese DNI ya es del paciente con historia " + historia.get() + ". Búscalo en la lista.");
+        }
+        if (!p.getCorreo().isEmpty() && pacienteRepository.existeCorreoDeOtraPersona(p.getCorreo(), p.getDni())) {
+            errores.put("correo", "Ese correo ya está registrado para otra persona.");
+        }
     }
 
     public String desactivar(int id, Usuario sesion) {
@@ -133,11 +139,17 @@ public class PacienteService {
         if (!a.getNombreCompleto().equals(d.getNombreCompleto())) c.append(" · nombre: ").append(a.getNombreCompleto()).append(" → ").append(d.getNombreCompleto());
         if (!a.getDni().equals(d.getDni())) c.append(" · DNI: ").append(a.getDni()).append(" → ").append(d.getDni());
         if (a.getIdCobertura() != d.getIdCobertura()) c.append(" · cobertura: ").append(a.getNombreCobertura()).append(" → ").append(d.getNombreCobertura());
+        c.append(cambiosDeContacto(a, d));
+        if (!a.getEstado().equals(d.getEstado())) c.append(" · estado: ").append(a.getEstado()).append(" → ").append(d.getEstado());
+        return c.toString();
+    }
+
+    private static String cambiosDeContacto(PacienteDTO a, PacienteDTO d) {
+        StringBuilder c = new StringBuilder();
         if (!a.getCelular().equals(d.getCelular()) && !d.getCelular().isEmpty()) c.append(" · celular actualizado");
         if (!a.getCorreo().equalsIgnoreCase(d.getCorreo()) && !d.getCorreo().isEmpty()) c.append(" · correo actualizado");
         if (!a.getObservaciones().equals(d.getObservaciones())) c.append(" · observaciones actualizadas");
         if (!java.util.Objects.equals(a.getFechaNacimiento(), d.getFechaNacimiento())) c.append(" · fecha de nacimiento");
-        if (!a.getEstado().equals(d.getEstado())) c.append(" · estado: ").append(a.getEstado()).append(" → ").append(d.getEstado());
         return c.toString();
     }
 
@@ -164,7 +176,16 @@ public class PacienteService {
         if (!Validaciones.dni(p.getDni())) errores.put("dni", "El DNI debe tener exactamente 8 números.");
         String errorFecha = Validaciones.fechaNacimiento(p.getFechaNacimiento());
         if (errorFecha != null) errores.put("fechaNacimiento", errorFecha);
-        // RF-01: al menos un dato de contacto para confirmar y recordar las citas
+        validarContacto(p, errores);
+        validarCobertura(p, errores);
+        if (p.getObservaciones().length() > MAX_OBSERVACIONES) {
+            errores.put("observaciones", "Máximo " + MAX_OBSERVACIONES + " caracteres.");
+        }
+        return errores;
+    }
+
+    /** RF-01: al menos un dato de contacto para confirmar y recordar las citas. */
+    private static void validarContacto(PacienteDTO p, Map<String, String> errores) {
         if (p.getCorreo().isEmpty() && p.getCelular().isEmpty()) {
             errores.put("celular", "Registra al menos un celular o un correo para avisarle de sus citas.");
         }
@@ -172,11 +193,6 @@ public class PacienteService {
         if (!p.getCelular().isEmpty() && !Validaciones.celular(p.getCelular())) {
             errores.put("celular", "El celular debe tener 9 números y empezar con 9.");
         }
-        validarCobertura(p, errores);
-        if (p.getObservaciones().length() > MAX_OBSERVACIONES) {
-            errores.put("observaciones", "Máximo " + MAX_OBSERVACIONES + " caracteres.");
-        }
-        return errores;
     }
 
     /** Si no es particular, se exige el N.º de afiliación (lo pide la aseguradora al cobrar). */

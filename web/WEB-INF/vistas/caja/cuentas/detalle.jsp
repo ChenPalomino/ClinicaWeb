@@ -18,7 +18,10 @@
     ParametroClinicaDTO par = (ParametroClinicaDTO) request.getAttribute("parametros");
     String tarifa = (String) request.getAttribute("tarifa");
     boolean puedeAnular = Boolean.TRUE.equals(request.getAttribute("puedeAnular"));
-    @SuppressWarnings("unchecked") List<ProductoServicioDTO> items = (List<ProductoServicioDTO>) request.getAttribute("items");
+    @SuppressWarnings("unchecked") List<ProductoServicioDTO> frecuentes = (List<ProductoServicioDTO>) request.getAttribute("frecuentes");
+    @SuppressWarnings("unchecked") List<OpcionDTO> billeteras = (List<OpcionDTO>) request.getAttribute("billeteras");
+    BilleteraConfigDTO cfgBilletera = (BilleteraConfigDTO) request.getAttribute("configBilletera");
+    ReportePagoDTO reporte = (ReportePagoDTO) request.getAttribute("reporte");
     @SuppressWarnings("unchecked") List<OpcionDTO> metodos = (List<OpcionDTO>) request.getAttribute("metodos");
     @SuppressWarnings("unchecked") Map<String, String> errores = (Map<String, String>) request.getAttribute("errores");
     if (errores == null) errores = Map.of();
@@ -33,6 +36,9 @@
     String url = ctx + "/caja/cuentas";
     boolean cobrable = c.isPendiente() && !c.getDetalles().isEmpty();
     String igvTexto = par.getIgvPorcentaje().stripTrailingZeros().toPlainString();
+    if (reporte != null && request.getAttribute("metodoElegido") == null) metodoSel = "BILLETERA";
+    Integer billeteraSel = sol.getIdBilletera();
+    if (billeteraSel == null && billeteras != null && !billeteras.isEmpty()) billeteraSel = billeteras.get(0).getId();
 %>
 
 <div class="d-flex flex-wrap align-items-center mb-3">
@@ -151,36 +157,47 @@
         </div>
         <% } %>
 
-        <%-- Agregar servicio o producto --%>
-        <% if (c.isPendiente() && items != null) { %>
-        <div class="card-footer">
-            <form method="POST" action="<%= url %>#detalle" class="form-row align-items-end" id="formAgregar">
+        <%-- Agregar servicio o producto: búsqueda en el tarifario + los más usados --%>
+        <% if (c.isPendiente()) { %>
+        <div class="card-footer agregar-item">
+            <form method="POST" action="<%= url %>#detalle" id="formAgregar" data-url-items="<%= url %>?accion=items">
                 <input type="hidden" name="accion" value="agregar">
                 <input type="hidden" name="id" value="<%= c.getIdCuentaAtencion() %>">
-                <div class="col-md-8 mb-2 mb-md-0">
-                    <label for="idItem" class="small text-muted mb-1">Agregar servicio o producto</label>
-                    <select id="idItem" name="idItem" class="form-control" required <%= c.getDetalles().isEmpty() ? "autofocus" : "" %>>
-                        <option value="">— Elige del tarifario —</option>
-                        <% String grupo = "";
-                           for (ProductoServicioDTO it : items) {
-                               if (!it.getTipo().equals(grupo)) {
-                                   if (!grupo.isEmpty()) { %></optgroup><% }
-                                   grupo = it.getTipo(); %><optgroup label="<%= "SERVICIO".equals(grupo) ? "Servicios" : "Productos" %>"><%
-                               }
-                               boolean agotado = it.getStock() != null && it.getStock() <= 0; %>
-                            <option value="<%= it.getIdProductoServicio() %>" <%= agotado ? "disabled" : "" %>>
-                                <%= EscapeHtml.texto(it.getNombre()) %> — S/ <%= s(it.getPrecio()) %><%= it.getStock() != null ? (agotado ? " (agotado)" : " (quedan " + it.getStock() + ")") : "" %></option>
-                        <% } if (!grupo.isEmpty()) { %></optgroup><% } %>
-                    </select>
-                </div>
-                <div class="col-4 col-md-2">
-                    <label for="cantidad" class="small text-muted mb-1">Cantidad</label>
-                    <input type="number" id="cantidad" name="cantidad" class="form-control" min="1" max="99" value="1" required>
-                </div>
-                <div class="col-8 col-md-2">
-                    <button type="submit" class="btn btn-outline-primary btn-block"><i class="fas fa-plus mr-1"></i> Agregar</button>
+                <input type="hidden" name="idItem" id="idItem" value="">
+                <label for="buscarItem" class="small text-muted mb-1">Agregar servicio o producto</label>
+                <div class="form-row">
+                    <div class="col-md-8 mb-2 mb-md-0 position-relative">
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-search"></i></span></div>
+                            <input type="search" id="buscarItem" class="form-control" autocomplete="off" maxlength="60"
+                                   placeholder="Escribe nombre o código (mín. 2 letras)" <%= c.getDetalles().isEmpty() ? "autofocus" : "" %>
+                                   role="combobox" aria-expanded="false" aria-controls="resultadosItem" aria-autocomplete="list">
+                        </div>
+                        <ul id="resultadosItem" class="list-group resultados-item shadow" role="listbox" hidden></ul>
+                        <div id="itemElegido" class="small mt-1 text-success" aria-live="polite"></div>
+                    </div>
+                    <div class="col-4 col-md-2">
+                        <label for="cantidad" class="sr-only">Cantidad</label>
+                        <input type="number" id="cantidad" name="cantidad" class="form-control" min="1" max="99" value="1" required title="Cantidad">
+                    </div>
+                    <div class="col-8 col-md-2">
+                        <button type="submit" class="btn btn-primary btn-block" id="botonAgregar" disabled><i class="fas fa-plus mr-1"></i> Agregar</button>
+                    </div>
                 </div>
             </form>
+            <% if (frecuentes != null && !frecuentes.isEmpty()) { %>
+            <div class="mt-2 frecuentes" aria-label="Más cobrados">
+                <span class="small text-muted mr-1">Más cobrados:</span>
+                <% for (ProductoServicioDTO f : frecuentes) { boolean agotado = f.getStock() != null && f.getStock() <= 0; %>
+                <form method="POST" action="<%= url %>#detalle" class="d-inline">
+                    <input type="hidden" name="accion" value="agregar"><input type="hidden" name="id" value="<%= c.getIdCuentaAtencion() %>">
+                    <input type="hidden" name="idItem" value="<%= f.getIdProductoServicio() %>"><input type="hidden" name="cantidad" value="1">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary chip-item mb-1" <%= agotado ? "disabled title=\"Agotado\"" : "" %>>
+                        <i class="fas fa-plus fa-xs mr-1"></i><%= EscapeHtml.texto(f.getNombre()) %> <span class="text-muted">S/ <%= s(f.getPrecio()) %></span></button>
+                </form>
+                <% } %>
+            </div>
+            <% } %>
         </div>
         <% } %>
     </div>
@@ -213,6 +230,27 @@
             <% if (!errores.isEmpty()) { %>
             <div class="alert alert-danger py-2" role="alert"><i class="fas fa-exclamation-triangle mr-1"></i>No se cobró: revisa <%= errores.size() == 1 ? "el campo marcado" : "los campos marcados" %>.</div>
             <% } %>
+            <% if (reporte != null) { %>
+            <div class="alert alert-info py-2 reporte-cuenta" role="status">
+                <strong><i class="fas fa-mobile-alt mr-1"></i>El paciente informó un pago</strong>
+                <div class="small"><%= EscapeHtml.texto(reporte.getNombreBilletera()) %> · S/ <%= s(reporte.getMonto()) %>
+                    <% if (!reporte.getNumeroOperacion().isEmpty()) { %> · Op. <span class="text-monospace"><%= EscapeHtml.texto(reporte.getNumeroOperacion()) %></span><% } %>
+                    <% if (!reporte.getCelular().isEmpty()) { %> · Cel. <%= EscapeHtml.texto(reporte.getCelular()) %><% } %>
+                    <% if (!reporte.getNombrePagador().isEmpty()) { %> · <%= EscapeHtml.texto(reporte.getNombrePagador()) %><% } %>
+                    <br><span class="text-muted"><%= FormatoVista.fechaHora(reporte.getFechaCreacion()) %></span></div>
+                <% if (!reporte.isMontoCoincide()) { %><div class="small text-danger mt-1">El monto no coincide con el total actual: recházalo o cobra con otro medio.</div><% } %>
+                <div class="d-flex flex-wrap mt-2" style="gap:.4rem">
+                    <button type="submit" form="formVerificar" class="btn btn-success btn-sm" <%= reporte.isMontoCoincide() ? "" : "disabled" %>><i class="fas fa-check mr-1"></i>Lo vi: confirmar</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-toggle="collapse" data-target="#rechazoReporte" aria-expanded="false">No aparece</button>
+                </div>
+                <div class="collapse mt-2" id="rechazoReporte">
+                    <label for="motivoReporte" class="small mb-1">Motivo para el paciente</label>
+                    <input type="text" id="motivoReporte" name="motivo" form="formRechazar" class="form-control form-control-sm" minlength="5" maxlength="200"
+                           value="No encontramos el pago en la app de la clínica">
+                    <button type="submit" form="formRechazar" class="btn btn-danger btn-sm mt-1">Rechazar aviso</button>
+                </div>
+            </div>
+            <% } %>
             <div class="text-center mb-3">
                 <div class="small text-muted text-uppercase">Total a pagar</div>
                 <div class="display-total monto">S/ <%= s(c.getTotal()) %></div>
@@ -224,7 +262,7 @@
                     <% for (OpcionDTO m : metodos) {
                            String cod = m.getExtra();
                            String icono = "EFECTIVO".equals(cod) ? "fa-money-bill-wave" : "TARJETA".equals(cod) ? "fa-credit-card" : "fa-mobile-alt";
-                           String corto = "EFECTIVO".equals(cod) ? "Efectivo" : "TARJETA".equals(cod) ? "Tarjeta" : "Yape / Plin"; %>
+                           String corto = "EFECTIVO".equals(cod) ? "Efectivo" : "TARJETA".equals(cod) ? "Tarjeta" : "Billetera"; %>
                     <label class="btn btn-outline-primary flex-fill <%= cod.equals(metodoSel) ? "active" : "" %>" title="<%= EscapeHtml.texto(m.getNombre()) %>">
                         <input type="radio" name="metodo" value="<%= EscapeHtml.texto(cod) %>" <%= cod.equals(metodoSel) ? "checked" : "" %>>
                         <i class="fas <%= icono %> d-block mb-1"></i><span class="small"><%= corto %></span>
@@ -241,6 +279,12 @@
                            placeholder="<%= c.getTotal().toPlainString() %>" autocomplete="off"
                            value="<%= sol.getMontoRecibido() == null ? "" : sol.getMontoRecibido().toPlainString() %>">
                     <%= msj(errores, "montoRecibido") %>
+                    <div class="montos-rapidos mt-2" aria-label="Montos rápidos">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-monto="<%= c.getTotal().toPlainString() %>">Exacto</button>
+                        <% for (int billete : new int[]{10, 20, 50, 100, 200}) { if (c.getTotal().compareTo(BigDecimal.valueOf(billete)) < 0) { %>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-monto="<%= billete %>">S/ <%= billete %></button>
+                        <% } } %>
+                    </div>
                     <div class="mt-2 vuelto" id="vuelto" aria-live="polite"></div>
                 </div>
             </div>
@@ -273,31 +317,48 @@
             </div>
 
             <div data-mostrar-si="metodo" data-valores="BILLETERA">
-                <div class="form-group">
-                    <span class="d-block mb-1">Aplicación</span>
-                    <div class="<%= inv(errores, "aplicacion") %>">
-                        <div class="custom-control custom-radio custom-control-inline">
-                            <input type="radio" id="appYape" name="aplicacion" value="YAPE" class="custom-control-input" <%= !"PLIN".equals(sol.getAplicacion()) ? "checked" : "" %>>
-                            <label class="custom-control-label" for="appYape">Yape</label>
-                        </div>
-                        <div class="custom-control custom-radio custom-control-inline">
-                            <input type="radio" id="appPlin" name="aplicacion" value="PLIN" class="custom-control-input" <%= "PLIN".equals(sol.getAplicacion()) ? "checked" : "" %>>
-                            <label class="custom-control-label" for="appPlin">Plin</label>
-                        </div>
-                    </div>
-                    <%= msj(errores, "aplicacion") %>
+                <% if (cfgBilletera != null && (cfgBilletera.isTieneQr() || !cfgBilletera.getCelular().isEmpty())) { %>
+                <div class="qr-caja text-center mb-3">
+                    <% if (cfgBilletera.isTieneQr()) { %>
+                    <img src="<%= ctx %>/qr-pago?v=<%= cfgBilletera.getVersionQr() %>" alt="QR de pago de la clínica" class="img-fluid qr-imagen" width="180" height="180" loading="lazy">
+                    <% } %>
+                    <% if (!cfgBilletera.getCelular().isEmpty()) { %><div class="mt-1"><span class="text-muted small">Celular</span> <strong class="text-monospace"><%= EscapeHtml.texto(cfgBilletera.getCelularLegible()) %></strong></div><% } %>
+                    <% if (!cfgBilletera.getTitular().isEmpty()) { %><div class="small text-muted">a nombre de <%= EscapeHtml.texto(cfgBilletera.getTitular()) %></div><% } %>
+                    <small class="d-block text-muted mt-1">Muestra este QR al paciente o gira la pantalla.</small>
                 </div>
+                <% } %>
+                <fieldset class="form-group">
+                    <legend class="col-form-label pt-0">Billetera</legend>
+                    <div class="chips-billetera <%= inv(errores, "billetera") %>">
+                        <% if (billeteras != null) for (OpcionDTO b : billeteras) { boolean sel = billeteraSel != null && billeteraSel == b.getId(); %>
+                        <div class="custom-control custom-radio custom-control-inline mb-1">
+                            <input type="radio" id="bil<%= b.getId() %>" name="idBilletera" value="<%= b.getId() %>" class="custom-control-input" <%= sel ? "checked" : "" %>>
+                            <label class="custom-control-label" for="bil<%= b.getId() %>"><%= EscapeHtml.texto(b.getNombre()) %></label>
+                        </div>
+                        <% } %>
+                    </div>
+                    <%= msj(errores, "billetera") %>
+                </fieldset>
                 <div class="form-group">
-                    <label for="numeroOperacion">N.º de operación</label>
-                    <input type="text" id="numeroOperacion" name="numeroOperacion" maxlength="12" inputmode="numeric" data-solo-numeros autocomplete="off"
-                           class="form-control text-monospace <%= inv(errores, "numeroOperacion") %>" placeholder="Lo ves en el celular de la clínica" value="<%= EscapeHtml.texto(sol.getNumeroOperacion()) %>">
+                    <label for="numeroOperacion">N.º de operación <span class="text-muted small">(lo que se vea)</span></label>
+                    <input type="text" id="numeroOperacion" name="numeroOperacion" maxlength="20" inputmode="numeric" data-solo-numeros autocomplete="off"
+                           class="form-control text-monospace <%= inv(errores, "numeroOperacion") %>" placeholder="Ej. 4521 o el número completo" value="<%= EscapeHtml.texto(sol.getNumeroOperacion()) %>">
+                    <small class="form-text text-muted">Si la app no muestra el número completo, escribe los dígitos visibles (mínimo 3) o el celular que pagó.</small>
                     <%= msj(errores, "numeroOperacion") %>
                 </div>
-                <div class="form-group">
-                    <label for="celular">Celular que pagó</label>
-                    <input type="tel" id="celular" name="celular" maxlength="9" inputmode="numeric" data-solo-numeros autocomplete="off"
-                           class="form-control <%= inv(errores, "celular") %>" placeholder="9 dígitos" value="<%= EscapeHtml.texto(sol.getCelular()) %>">
-                    <%= msj(errores, "celular") %>
+                <div class="form-row">
+                    <div class="form-group col-5">
+                        <label for="celular">Celular</label>
+                        <input type="tel" id="celular" name="celular" maxlength="9" inputmode="numeric" data-solo-numeros autocomplete="off"
+                               class="form-control <%= inv(errores, "celular") %>" placeholder="9 dígitos" value="<%= EscapeHtml.texto(sol.getCelular()) %>">
+                        <%= msj(errores, "celular") %>
+                    </div>
+                    <div class="form-group col-7">
+                        <label for="nombrePagador">Nombre en la app</label>
+                        <input type="text" id="nombrePagador" name="nombrePagador" maxlength="80" autocomplete="off"
+                               class="form-control <%= inv(errores, "nombrePagador") %>" placeholder="Opcional" value="<%= EscapeHtml.texto(sol.getNombrePagador()) %>">
+                        <%= msj(errores, "nombrePagador") %>
+                    </div>
                 </div>
             </div>
 
@@ -358,6 +419,10 @@
                 <i class="fas fa-check mr-1"></i> Cobrar S/ <%= s(c.getTotal()) %></button>
         </div>
     </form>
+    <% if (reporte != null) { %>
+    <form method="POST" action="<%= url %>" id="formVerificar" data-un-envio><input type="hidden" name="accion" value="verificarReporte"><input type="hidden" name="id" value="<%= c.getIdCuentaAtencion() %>"><input type="hidden" name="idReporte" value="<%= reporte.getIdReportePago() %>"></form>
+    <form method="POST" action="<%= url %>" id="formRechazar"><input type="hidden" name="accion" value="rechazarReporte"><input type="hidden" name="id" value="<%= c.getIdCuentaAtencion() %>"><input type="hidden" name="idReporte" value="<%= reporte.getIdReportePago() %>"></form>
+    <% } %>
 <% } else if (c.isPendiente()) { %>
     <div class="card"><div class="card-body text-muted small"><i class="fas fa-info-circle mr-1"></i>Cuando agregues al menos un servicio o producto aquí aparecerá el cobro.</div></div>
 <% } %>
@@ -368,7 +433,9 @@
         <div class="card-body">
             <dl class="row mb-0 small">
                 <dt class="col-5">Medio</dt><dd class="col-7"><%= EscapeHtml.texto(p.getNombreMetodo()) %></dd>
-                <% if (p.getReferencia() != null) { %><dt class="col-5">Referencia</dt><dd class="col-7"><%= EscapeHtml.texto(p.getReferencia()) %></dd><% } %>
+                <% if (p.getNombreBilletera() != null && !p.getNombreBilletera().isEmpty()) { %><dt class="col-5">Billetera</dt><dd class="col-7"><%= EscapeHtml.texto(p.getNombreBilletera()) %></dd><% } %>
+                <% if (p.getReferencia() != null && !p.getReferencia().isEmpty()) { %><dt class="col-5">Referencia</dt><dd class="col-7"><%= EscapeHtml.texto(p.getReferencia()) %></dd><% } %>
+                <% if (p.getNombrePagador() != null && !p.getNombrePagador().isEmpty()) { %><dt class="col-5">Pagó</dt><dd class="col-7"><%= EscapeHtml.texto(p.getNombrePagador()) %></dd><% } %>
                 <% if (p.getMontoRecibido() != null) { %>
                 <dt class="col-5">Recibido</dt><dd class="col-7 monto">S/ <%= s(p.getMontoRecibido()) %></dd>
                 <dt class="col-5">Vuelto</dt><dd class="col-7 monto">S/ <%= s(p.getVuelto()) %></dd>

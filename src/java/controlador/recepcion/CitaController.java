@@ -126,36 +126,12 @@ public class CitaController extends HttpServlet {
         String destino = regreso.isEmpty() ? verCita : ctx + RUTA + regreso;
         try {
             switch (accion == null ? "" : accion) {
-                case "reservar": {
-                    int idPaciente = ControladorUtil.entero(request.getParameter("paciente"), 0);
-                    CitaService.Resultado r = servicio.reservar(idPaciente, ControladorUtil.entero(request.getParameter("medico"), 0),
-                            ControladorUtil.fecha(request.getParameter("fecha")), hora(request), request.getParameter("motivo"), usuario);
-                    if (r.isExito()) {
-                        CitaDTO c = servicio.obtener(r.idCita()).orElseThrow();
-                        MensajeFlash.exito(session, "Cita " + r.codigo() + " reservada para " + c.getNombrePaciente() + ", "
-                                + FechaTexto.paraFrase(c.getFecha(), servicio.hoy()) + " a las " + FechaTexto.hora(c.getHoraInicio())
-                                + avisoCorreo(c));
-                        destino = ctx + RUTA + "?accion=ver&id=" + r.idCita();
-                    } else {
-                        MensajeFlash.error(session, r.error());
-                        destino = ctx + RUTA + "?accion=reservar&paciente=" + idPaciente + volverAlAsistente(request);
-                    }
+                case "reservar":
+                    destino = reservar(request, servicio, usuario);
                     break;
-                }
-                case "reprogramar": {
-                    String error = servicio.reprogramar(id, ControladorUtil.entero(request.getParameter("medico"), 0),
-                            ControladorUtil.fecha(request.getParameter("fecha")), hora(request), usuario);
-                    if (error == null) {
-                        CitaDTO c = servicio.obtener(id).orElseThrow();
-                        MensajeFlash.exito(session, "Cita reprogramada para " + FechaTexto.paraFrase(c.getFecha(), servicio.hoy())
-                                + " a las " + FechaTexto.hora(c.getHoraInicio()) + avisoCorreo(c));
-                        destino = verCita;
-                    } else {
-                        MensajeFlash.error(session, error);
-                        destino = ctx + RUTA + "?accion=reprogramar&id=" + id + volverAlAsistente(request);
-                    }
+                case "reprogramar":
+                    destino = reprogramar(request, servicio, usuario, id, verCita);
                     break;
-                }
                 case "cancelar":
                     ControladorUtil.resultado(session, servicio.cancelar(id, motivo(request), usuario),
                             "Cita cancelada. El turno quedó libre para otro paciente.");
@@ -164,18 +140,9 @@ public class CitaController extends HttpServlet {
                     ControladorUtil.resultado(session, servicio.registrarLlegada(id, usuario),
                             "Llegada registrada: el paciente figura «en sala de espera» en la agenda del médico.");
                     break;
-                case "cobrar": {
-                    CitaService.Cobro cobro = servicio.cobrar(id, usuario);
-                    if (cobro.isExito()) {
-                        if (cobro.aviso() != null) {
-                            MensajeFlash.aviso(session, cobro.aviso());
-                        }
-                        destino = ctx + "/caja/cuentas?accion=ver&id=" + cobro.idCuenta();
-                    } else {
-                        MensajeFlash.error(session, cobro.error());
-                    }
+                case "cobrar":
+                    destino = cobrar(session, servicio.cobrar(id, usuario), ctx, destino);
                     break;
-                }
                 default:
                     MensajeFlash.error(session, "Acción no reconocida.");
                     destino = ctx + RUTA;
@@ -185,6 +152,46 @@ public class CitaController extends HttpServlet {
             MensajeFlash.error(session, "No se pudo completar la operación. Inténtalo de nuevo en unos minutos.");
         }
         response.sendRedirect(destino);
+    }
+
+    private static String reservar(HttpServletRequest request, CitaService servicio, Usuario usuario) {
+        String base = request.getContextPath() + RUTA;
+        int idPaciente = ControladorUtil.entero(request.getParameter("paciente"), 0);
+        CitaService.Resultado r = servicio.reservar(idPaciente, ControladorUtil.entero(request.getParameter("medico"), 0),
+                ControladorUtil.fecha(request.getParameter("fecha")), hora(request), request.getParameter("motivo"), usuario);
+        if (!r.isExito()) {
+            MensajeFlash.error(request.getSession(), r.error());
+            return base + "?accion=reservar&paciente=" + idPaciente + volverAlAsistente(request);
+        }
+        CitaDTO c = servicio.obtener(r.idCita()).orElseThrow();
+        MensajeFlash.exito(request.getSession(), "Cita " + r.codigo() + " reservada para " + c.getNombrePaciente() + ", "
+                + FechaTexto.paraFrase(c.getFecha(), servicio.hoy()) + " a las " + FechaTexto.hora(c.getHoraInicio())
+                + avisoCorreo(c));
+        return base + "?accion=ver&id=" + r.idCita();
+    }
+
+    private static String reprogramar(HttpServletRequest request, CitaService servicio, Usuario usuario, int id, String verCita) {
+        String error = servicio.reprogramar(id, ControladorUtil.entero(request.getParameter("medico"), 0),
+                ControladorUtil.fecha(request.getParameter("fecha")), hora(request), usuario);
+        if (error != null) {
+            MensajeFlash.error(request.getSession(), error);
+            return request.getContextPath() + RUTA + "?accion=reprogramar&id=" + id + volverAlAsistente(request);
+        }
+        CitaDTO c = servicio.obtener(id).orElseThrow();
+        MensajeFlash.exito(request.getSession(), "Cita reprogramada para " + FechaTexto.paraFrase(c.getFecha(), servicio.hoy())
+                + " a las " + FechaTexto.hora(c.getHoraInicio()) + avisoCorreo(c));
+        return verCita;
+    }
+
+    private static String cobrar(HttpSession session, CitaService.Cobro cobro, String ctx, String destino) {
+        if (!cobro.isExito()) {
+            MensajeFlash.error(session, cobro.error());
+            return destino;
+        }
+        if (cobro.aviso() != null) {
+            MensajeFlash.aviso(session, cobro.aviso());
+        }
+        return ctx + "/caja/cuentas?accion=ver&id=" + cobro.idCuenta();
     }
 
     // ---------------------------------------------------------------------

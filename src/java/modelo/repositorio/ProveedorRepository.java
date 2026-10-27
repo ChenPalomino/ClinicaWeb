@@ -13,4 +13,8 @@ public interface ProveedorRepository extends CrudRepository<ProveedorDTO, Intege
     boolean reactivar(int idProveedor);
 
     boolean existeRuc(String ruc, int idProveedorExcluir);
+
+    default java.util.List<String> rubros() {
+        return modelo.servicios.ProveedorService.RUBROS;
+    }
 }

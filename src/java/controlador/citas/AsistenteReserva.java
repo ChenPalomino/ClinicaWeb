@@ -30,46 +30,60 @@ public final class AsistenteReserva {
      */
     public static void cargar(HttpServletRequest request, CitaService servicio, Integer especialidadFija, CitaDTO citaQueSeMueve) {
         List<OpcionDTO> especialidades = servicio.especialidades();
-        Integer esp = especialidadFija != null ? especialidadFija : ControladorUtil.enteroONulo(request.getParameter("esp"));
-        if (esp == null && especialidades.size() == 1) {
-            esp = especialidades.get(0).getId();
-        }
-        final Integer idEsp = esp;
-        if (esp != null && especialidades.stream().noneMatch(o -> o.getId() == idEsp)) {
-            esp = null;     // especialidad sin médicos que atiendan o inexistente
-        }
+        Integer esp = especialidadElegida(request, especialidades, especialidadFija);
         request.setAttribute("especialidades", especialidades);
         request.setAttribute("espSel", esp);
         request.setAttribute("citaQueSeMueve", citaQueSeMueve);
         request.setAttribute("hoy", servicio.hoy());
         request.setAttribute("horasCancelacion", servicio.horasCancelacion());
         request.setAttribute("ultimoDia", servicio.ultimoDiaReserva());
-        if (esp == null) {
-            return;
+        request.setAttribute("precios", precios(servicio, pacienteDelAsistente(request, citaQueSeMueve)));
+        if (esp != null) {
+            cargarTurnos(request, servicio, esp);
         }
+    }
+
+    private static Integer especialidadElegida(HttpServletRequest request, List<OpcionDTO> especialidades, Integer fija) {
+        Integer esp = fija != null ? fija : ControladorUtil.enteroONulo(request.getParameter("esp"));
+        if (esp == null && especialidades.size() == 1) {
+            return especialidades.get(0).getId();
+        }
+        final Integer idEsp = esp;
+        return esp != null && especialidades.stream().noneMatch(o -> o.getId() == idEsp) ? null : esp;
+    }
+
+    private static Integer pacienteDelAsistente(HttpServletRequest request, CitaDTO citaQueSeMueve) {
+        if (citaQueSeMueve != null) {
+            return citaQueSeMueve.getIdPaciente();
+        }
+        Object pacienteSel = request.getAttribute("pacienteSel");
+        return pacienteSel instanceof modelo.dto.PacienteDTO ? Integer.valueOf(((modelo.dto.PacienteDTO) pacienteSel).getIdPaciente()) : null;
+    }
+
+    private static java.util.Map<Integer, modelo.dto.PrecioConsultaDTO> precios(CitaService servicio, Integer idPaciente) {
+        try {
+            return servicio.preciosConsulta(idPaciente);
+        } catch (RuntimeException e) {
+            System.err.println("AsistenteReserva: no se pudieron leer los precios -> " + e.getMessage());
+            return java.util.Map.of();
+        }
+    }
+
+    private static void cargarTurnos(HttpServletRequest request, CitaService servicio, Integer esp) {
         List<MedicoDTO> medicos = servicio.medicos(esp);
-        Integer medico = ControladorUtil.enteroONulo(request.getParameter("medico"));
-        final Integer idMed = medico;
-        if (medico != null && medicos.stream().noneMatch(m -> m.getIdMedico() == idMed)) {
-            medico = null;
-        }
+        Integer elegido = ControladorUtil.enteroONulo(request.getParameter("medico"));
+        Integer medico = elegido != null && medicos.stream().anyMatch(m -> m.getIdMedico() == elegido) ? elegido : null;
         request.setAttribute("medicos", medicos);
         request.setAttribute("medicoSel", medico);
-
-        LocalDate desde = ControladorUtil.fecha(request.getParameter("desde"));
         LocalDate fecha = ControladorUtil.fecha(request.getParameter("fecha"));
-        if (desde == null && fecha != null) {
-            desde = fecha;
-        }
-        List<DiaDisponibleDTO> dias = servicio.dias(esp, medico, desde);
+        LocalDate desde = ControladorUtil.fecha(request.getParameter("desde"));
+        List<DiaDisponibleDTO> dias = servicio.dias(esp, medico, desde == null ? fecha : desde);
         if (fecha == null) {
-            // Se sugiere el primer día con turnos libres: un clic menos (Nielsen #7)
             fecha = dias.stream().filter(d -> d.getLibres() > 0).map(DiaDisponibleDTO::getFecha).findFirst().orElse(null);
         }
-        List<AgendaMedicoDTO> turnos = fecha == null ? List.of() : servicio.turnos(esp, medico, fecha);
         request.setAttribute("dias", dias);
         request.setAttribute("desde", dias.isEmpty() ? servicio.hoy() : dias.get(0).getFecha());
         request.setAttribute("fechaSel", fecha);
-        request.setAttribute("turnos", turnos);
+        request.setAttribute("turnos", fecha == null ? List.of() : servicio.turnos(esp, medico, fecha));
     }
 }

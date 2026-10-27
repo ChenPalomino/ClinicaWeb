@@ -22,7 +22,22 @@
                 + (idSel == null ? "" : "&id=" + idSel);
     String[][] entidades = {{"SESION", "Inicios de sesión"}, {"USUARIO", "Usuarios"}, {"PACIENTE", "Pacientes"},
                             {"PROVEEDOR", "Proveedores"}, {"TARIFARIO", "Tarifario"}, {"COBRANZA", "Caja y cobranza"},
-                            {"CITA", "Citas"}, {"MEDICO", "Médicos y horarios"}, {"CONFIGURACION", "Datos de la clínica"}};
+                            {"CITA", "Citas"}, {"MEDICO", "Médicos y horarios"}, {"ESPECIALIDAD", "Especialidades"},
+                            {"CONFIGURACION", "Datos de la clínica"}};
+    boolean ultimos30 = Boolean.TRUE.equals(request.getAttribute("ultimos30"));
+    if (ultimos30) {
+        desde = "";
+        base = "q=" + (entidadSel.isEmpty() ? "" : "&entidad=" + entidadSel);
+    }
+    String queLista = "Los movimientos";
+    String hoyIso = java.time.LocalDate.now().toString();
+    String[][] atajos = {
+        {"Todo lo de hoy", "desde=" + hoyIso + "&hasta=" + hoyIso, "fas fa-calendar-day"},
+        {"Inicios de sesión de hoy", "entidad=SESION&desde=" + hoyIso + "&hasta=" + hoyIso, "fas fa-sign-in-alt"},
+        {"Caja de hoy", "entidad=COBRANZA&desde=" + hoyIso + "&hasta=" + hoyIso, "fas fa-cash-register"},
+        {"Citas de la semana", "entidad=CITA&desde=" + java.time.LocalDate.now().minusDays(6) + "&hasta=" + hoyIso, "fas fa-calendar-check"},
+        {"Usuarios (30 días)", "entidad=USUARIO", "fas fa-users-cog"}
+    };
 %>
 
 <div class="card">
@@ -54,15 +69,20 @@
             </div>
             <div class="col-6 col-md-2 mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Filtrar</button>
-                <% if (filtro != null && filtro.hayFiltros()) { %><a href="<%= urlLista %>" class="btn btn-link px-1">Limpiar</a><% } %>
+                <% if (filtro != null) { %><a href="<%= urlLista %>" class="btn btn-link px-1">Limpiar</a><% } %>
             </div>
         </form>
+        <% if (ultimos30) { %>
+        <p class="small text-muted mb-0 aviso-rango"><i class="far fa-calendar-alt mr-1"></i>Se muestran los últimos <%= modelo.dto.RangoFechasDTO.DIAS_POR_DEFECTO %> días. Para ver anteriores, elige las fechas o busca un texto.</p>
+        <% } %>
     </div>
     <div class="card-body p-0">
-    <% if (errorDatos || pagina == null) { %>
+    <% if (errorDatos) { %>
         <div class="estado-vacio"><i class="fas fa-plug text-warning"></i>
             <p class="mb-1"><strong>No pudimos cargar la auditoría.</strong></p>
             <p class="text-muted">¿Ejecutaste el script sql/08? Revisa la conexión y recarga.</p></div>
+    <% } else if (pagina == null) { %>
+        <%@ include file="/WEB-INF/vistas/comun/inicio-filtros.jspf" %>
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio"><i class="fas fa-clipboard-check text-muted"></i>
             <p class="mb-1"><strong>No hay movimientos <%= filtro.hayFiltros() ? "con esos filtros" : "registrados todavía" %>.</strong></p></div>

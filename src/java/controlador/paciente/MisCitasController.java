@@ -59,30 +59,7 @@ public class MisCitasController extends HttpServlet {
                 return;
             }
             if ("ver".equals(accion) || "reprogramar".equals(accion)) {
-                Optional<CitaDTO> cita = servicio.obtener(ControladorUtil.entero(request.getParameter("id"), 0));
-                if (cita.isEmpty() || !CitaService.puedeVer(cita.get(), usuario)) {
-                    MensajeFlash.error(request.getSession(), "No encontramos esa cita.");
-                    response.sendRedirect(request.getContextPath() + RUTA);
-                    return;
-                }
-                AccionesCita acciones = new AccionesCita(cita.get(), usuario, servicio.ahora(), servicio.horasCancelacion());
-                if ("reprogramar".equals(accion)) {
-                    if (!acciones.isReprogramar()) {
-                        String motivo = acciones.getBloqueoPaciente();
-                        MensajeFlash.aviso(request.getSession(), motivo != null ? motivo : "Esta cita ya no se puede cambiar.");
-                        response.sendRedirect(request.getContextPath() + RUTA);
-                        return;
-                    }
-                    request.setAttribute("modoPaciente", true);
-                    AsistenteReserva.cargar(request, servicio, cita.get().getIdEspecialidad(), cita.get());
-                    vista(request, response, "Cambiar mi cita", "/WEB-INF/vistas/citas/reservar.jsp");
-                    return;
-                }
-                request.setAttribute("cita", cita.get());
-                request.setAttribute("acciones", acciones);
-                request.setAttribute("hoy", servicio.hoy());
-                request.setAttribute("motivosCancelacion", CitaService.MOTIVOS_CANCELACION);
-                vista(request, response, "Cita " + cita.get().getCodigo(), "/WEB-INF/vistas/citas/detalle.jsp");
+                verOReprogramar(request, response, servicio, usuario, "reprogramar".equals(accion));
                 return;
             }
             List<CitaDTO> proximas = servicio.proximasDelPaciente(idPaciente.get(), 20);
@@ -99,6 +76,35 @@ public class MisCitasController extends HttpServlet {
             request.setAttribute("errorDatos", true);
         }
         vista(request, response, "Mis citas", "/WEB-INF/vistas/paciente/citas.jsp");
+    }
+
+    private void verOReprogramar(HttpServletRequest request, HttpServletResponse response, CitaService servicio, Usuario usuario,
+                                 boolean reprogramar) throws ServletException, IOException {
+        Optional<CitaDTO> cita = servicio.obtener(ControladorUtil.entero(request.getParameter("id"), 0))
+                .filter(c -> CitaService.puedeVer(c, usuario));
+        if (cita.isEmpty()) {
+            MensajeFlash.error(request.getSession(), "No encontramos esa cita.");
+            response.sendRedirect(request.getContextPath() + RUTA);
+            return;
+        }
+        AccionesCita acciones = new AccionesCita(cita.get(), usuario, servicio.ahora(), servicio.horasCancelacion());
+        if (reprogramar && !acciones.isReprogramar()) {
+            String motivo = acciones.getBloqueoPaciente();
+            MensajeFlash.aviso(request.getSession(), motivo != null ? motivo : "Esta cita ya no se puede cambiar.");
+            response.sendRedirect(request.getContextPath() + RUTA);
+            return;
+        }
+        if (reprogramar) {
+            request.setAttribute("modoPaciente", true);
+            AsistenteReserva.cargar(request, servicio, cita.get().getIdEspecialidad(), cita.get());
+            vista(request, response, "Cambiar mi cita", "/WEB-INF/vistas/citas/reservar.jsp");
+            return;
+        }
+        request.setAttribute("cita", cita.get());
+        request.setAttribute("acciones", acciones);
+        request.setAttribute("hoy", servicio.hoy());
+        request.setAttribute("motivosCancelacion", CitaService.MOTIVOS_CANCELACION);
+        vista(request, response, "Cita " + cita.get().getCodigo(), "/WEB-INF/vistas/citas/detalle.jsp");
     }
 
     @Override

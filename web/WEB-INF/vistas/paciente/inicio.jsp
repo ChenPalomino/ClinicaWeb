@@ -79,6 +79,7 @@
                     <div class="font-weight-bold"><%= FechaTexto.relativaCompleta(c.getFecha(), hoy) %> · <%= FechaTexto.hora(c.getHoraInicio()) %></div>
                     <div><%= EscapeHtml.texto(c.getEspecialidad()) %> con Dr(a). <%= EscapeHtml.texto(c.getNombreMedico()) %></div>
                     <small class="text-muted"><i class="fas fa-door-open mr-1"></i><%= EscapeHtml.texto(c.getConsultorio()) %> · <%= EscapeHtml.texto(c.getCodigo()) %></small>
+                    <%@ include file="/WEB-INF/vistas/comun/precio-cita.jspf" %>
                 </div>
             </a>
         </li>

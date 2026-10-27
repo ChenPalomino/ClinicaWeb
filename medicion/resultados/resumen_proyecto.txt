@@ -1,0 +1,1 @@
+proyecto_completo|archivos=228|clases=249|metodos=2084|loc=15108|cc_total=4028|cc_promedio=1.93|cc_max=10|metodos_cc_mayor_10=0|lineas_duplicadas=44|duplicacion=0.29%

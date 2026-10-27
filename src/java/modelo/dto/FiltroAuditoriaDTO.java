@@ -8,7 +8,7 @@ public class FiltroAuditoriaDTO {
 
     public static final int TAMANIO_PAGINA = 20;
     public static final Set<String> ENTIDADES = Set.of("SESION", "USUARIO", "PACIENTE", "PROVEEDOR", "TARIFARIO",
-            "COBRANZA", "CITA", "MEDICO", "CONFIGURACION");
+            "COBRANZA", "CITA", "MEDICO", "ESPECIALIDAD", "CONFIGURACION");
 
     private final String texto;
     private final String entidad;

@@ -16,9 +16,15 @@ public class SolicitudPago {
     private String tipoTarjeta = "";
     private String ultimosDigitos = "";
     private String codigoAutorizacion = "";
-    private String aplicacion = "";
+    private Integer idBilletera;
+    private String nombreBilletera = "";
     private String numeroOperacion = "";
     private String celular = "";
+    private String nombrePagador = "";
+    private Integer idReportePago;
+
+    public Integer getIdReportePago() { return idReportePago; }
+    public void setIdReportePago(Integer v) { idReportePago = v; }
 
     private static String limpio(String v) { return v == null ? "" : v.trim(); }
 
@@ -32,10 +38,14 @@ public class SolicitudPago {
     public void setUltimosDigitos(String v) { ultimosDigitos = limpio(v); }
     public String getCodigoAutorizacion() { return codigoAutorizacion; }
     public void setCodigoAutorizacion(String v) { codigoAutorizacion = limpio(v); }
-    public String getAplicacion() { return aplicacion; }
-    public void setAplicacion(String v) { aplicacion = limpio(v).toUpperCase(); }
+    public Integer getIdBilletera() { return idBilletera; }
+    public void setIdBilletera(Integer v) { idBilletera = v; }
+    public String getNombreBilletera() { return nombreBilletera; }
+    public void setNombreBilletera(String v) { nombreBilletera = limpio(v); }
+    public String getNombrePagador() { return nombrePagador; }
+    public void setNombrePagador(String v) { nombrePagador = limpio(v).replaceAll("\\s+", " "); }
     public String getNumeroOperacion() { return numeroOperacion; }
-    public void setNumeroOperacion(String v) { numeroOperacion = limpio(v); }
+    public void setNumeroOperacion(String v) { numeroOperacion = limpio(v).replaceAll("[\\s-]", ""); }
     public String getCelular() { return celular; }
     public void setCelular(String v) { celular = limpio(v).replace(" ", ""); }
 }

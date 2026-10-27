@@ -7,6 +7,7 @@ import modelo.dto.RangoFechasDTO;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Set;
 
 /**
  * Ayudas comunes de los controladores CRUD: leer números, decimales y fechas
@@ -57,10 +58,29 @@ public final class ControladorUtil {
      * Rango de fechas de registro de un listado (parámetros "desde" y "hasta").
      * Sin fechas ni texto buscado = últimos 30 días (ver RangoFechasDTO).
      */
-    public static RangoFechasDTO rango(HttpServletRequest request) {
-        String q = request.getParameter("q");
+    public static RangoFechasDTO rango(HttpServletRequest request, String... otrosFiltros) {
+        boolean hayBusqueda = conValor(request, "q");
+        for (String nombre : otrosFiltros) {
+            hayBusqueda = hayBusqueda || conValor(request, nombre);
+        }
         return RangoFechasDTO.de(fecha(request.getParameter("desde")), fecha(request.getParameter("hasta")),
-                q != null && !q.isBlank(), LocalDate.now());
+                hayBusqueda, LocalDate.now());
+    }
+
+    private static final Set<String> PARAMETROS_SIN_FILTRO = Set.of("_t", "accion", "regreso");
+
+    public static boolean busquedaSolicitada(HttpServletRequest request) {
+        for (String nombre : request.getParameterMap().keySet()) {
+            if (!PARAMETROS_SIN_FILTRO.contains(nombre)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean conValor(HttpServletRequest request, String nombre) {
+        String v = request.getParameter(nombre);
+        return v != null && !v.isBlank();
     }
 
     /** error == null -> mensaje de éxito; si no, el error. */

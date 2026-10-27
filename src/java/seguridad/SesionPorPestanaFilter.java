@@ -72,7 +72,7 @@ public class SesionPorPestanaFilter implements Filter {
         }
         String ruta = request.getRequestURI().substring(request.getContextPath().length());
         return !(ruta.startsWith("/css/") || ruta.startsWith("/js/") || ruta.startsWith("/img/")
-                || ruta.equals("/foto") || ruta.equals("/favicon.ico") || ESTATICO.matcher(ruta).find());
+                || ruta.equals("/foto") || ruta.equals("/qr-pago") || ruta.equals("/favicon.ico") || ESTATICO.matcher(ruta).find());
     }
 
     private static final Pattern ESTATICO = Pattern.compile("\\.(css|js|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|map)$");

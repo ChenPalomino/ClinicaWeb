@@ -19,16 +19,20 @@ public final class UrlAplicacion {
         if (configurada != null && !configurada.isBlank()) {
             return configurada.endsWith("/") ? configurada.substring(0, configurada.length() - 1) : configurada;
         }
-        // Detrás de un proxy (Render, Railway...) el protocolo real viene en esta cabecera
-        String protocolo = request.getHeader("X-Forwarded-Proto");
-        if (protocolo == null || protocolo.isBlank()) {
-            protocolo = request.getScheme();
-        }
+        String protocolo = protocolo(request);
         int puerto = request.getServerPort();
-        boolean puertoPorDefecto = ("http".equals(protocolo) && puerto == 80)
-                || ("https".equals(protocolo) && (puerto == 443 || puerto == 80));
         return protocolo + "://" + request.getServerName()
-                + (puertoPorDefecto ? "" : ":" + puerto)
+                + (puertoPorDefecto(protocolo, puerto) ? "" : ":" + puerto)
                 + request.getContextPath();
+    }
+
+    /** Detrás de un proxy (Render, Railway...) el protocolo real viene en X-Forwarded-Proto. */
+    private static String protocolo(HttpServletRequest request) {
+        String protocolo = request.getHeader("X-Forwarded-Proto");
+        return protocolo == null || protocolo.isBlank() ? request.getScheme() : protocolo;
+    }
+
+    private static boolean puertoPorDefecto(String protocolo, int puerto) {
+        return ("http".equals(protocolo) && puerto == 80) || ("https".equals(protocolo) && (puerto == 443 || puerto == 80));
     }
 }

@@ -27,22 +27,31 @@ public class CitaRepositoryImpl implements CitaRepository {
     private static final String SELECT_CITA =
           "SELECT c.id_cita, c.codigo_cita, c.id_paciente, c.id_medico, c.id_especialidad, c.fecha, c.hora_inicio, "
         + "       c.hora_fin, c.motivo, c.estado_cita, c.canal, c.reprogramaciones, c.fecha_llegada, c.fecha_atencion, "
-        + "       c.nota_atencion, c.motivo_cancelacion, c.fecha_cancelacion, c.cancelada_por, "
+        + "       c.nota_atencion, c.motivo_cancelacion, c.fecha_cancelacion, uc.nombre_usuario AS cancelada_por, "
         + "       COALESCE(c.id_cuenta_atencion, 0) AS id_cuenta_atencion, c.fecha_creacion, c.usuario_registro, "
         + "       dp.nombres || ' ' || dp.apellidos AS paciente, dp.dni, p.numero_historia, "
         + "       COALESCE(dp.id_usuario, 0) AS id_usuario_paciente, dp.fecha_nacimiento, "
         + "       COALESCE(p.observaciones, '') AS observaciones, cb.nombre AS cobertura, "
-        + "       dm.nombres || ' ' || dm.apellidos AS medico, m.id_usuario AS id_usuario_medico, m.consultorio, "
+        + "       dm.nombres || ' ' || dm.apellidos AS medico, COALESCE(dm.id_usuario, 0) AS id_usuario_medico, m.consultorio, "
         + "       e.nombre AS especialidad, COALESCE(ca.estado_cuenta, '') AS estado_cuenta, "
-        + "       COALESCE(ca.numero_cuenta, '') AS numero_cuenta "
+        + "       COALESCE(ca.numero_cuenta, '') AS numero_cuenta, COALESCE(ca.total, 0) AS total_cuenta, "
+        + "       cb.tipo AS tipo_cobertura, cb.porcentaje_cobertura, "
+        + "       (SELECT rp.estado_reporte FROM tt_reporte_pago rp WHERE rp.id_cuenta_atencion = c.id_cuenta_atencion "
+        + "         ORDER BY rp.id_reporte_pago DESC LIMIT 1) AS estado_reporte, "
+        + "       (SELECT rp.motivo_rechazo FROM tt_reporte_pago rp WHERE rp.id_cuenta_atencion = c.id_cuenta_atencion "
+        + "         ORDER BY rp.id_reporte_pago DESC LIMIT 1) AS motivo_reporte, "
+        + "       (SELECT ps.precio FROM vw_producto_servicio ps JOIN tm_categoria pc ON pc.id_categoria = ps.id_categoria "
+        + "         WHERE ps.id_especialidad = c.id_especialidad AND ps.tipo = 'SERVICIO' AND ps.estado = 'Activo' "
+        + "         ORDER BY (pc.nombre = 'Consulta médica') DESC, ps.id_producto_servicio LIMIT 1) AS precio_consulta "
         + "FROM tt_cita c "
         + "JOIN tt_paciente p ON p.id_paciente = c.id_paciente "
         + "JOIN tt_datos_personales dp ON dp.id_datos_personales = p.id_datos_personales "
         + "JOIN tm_cobertura cb ON cb.id_cobertura = p.id_cobertura "
         + "JOIN tt_medico m ON m.id_medico = c.id_medico "
-        + "JOIN tt_datos_personales dm ON dm.id_usuario = m.id_usuario "
+        + "JOIN tt_datos_personales dm ON dm.id_datos_personales = m.id_datos_personales "
         + "JOIN tm_especialidad e ON e.id_especialidad = c.id_especialidad "
-        + "LEFT JOIN tt_cuenta_atencion ca ON ca.id_cuenta_atencion = c.id_cuenta_atencion ";
+        + "LEFT JOIN vw_cuenta_atencion ca ON ca.id_cuenta_atencion = c.id_cuenta_atencion "
+        + "LEFT JOIN tt_usuario uc ON uc.id_usuario = c.id_usuario_cancela ";
 
     private static final String ACTIVA = "c.estado_cita IN ('RESERVADA', 'CONFIRMADA')";
 
@@ -86,6 +95,12 @@ public class CitaRepositoryImpl implements CitaRepository {
         c.setEspecialidad(rs.getString("especialidad"));
         c.setEstadoCuenta(rs.getString("estado_cuenta"));
         c.setNumeroCuenta(rs.getString("numero_cuenta"));
+        c.setTotalCuenta(rs.getBigDecimal("total_cuenta"));
+        c.setEstadoReportePago(rs.getString("estado_reporte"));
+        c.setMotivoReportePago(rs.getString("motivo_reporte"));
+        c.setPrecioConsulta(modelo.cobranza.CotizadorConsulta.cotizar(rs.getBigDecimal("precio_consulta"),
+                new modelo.dto.CoberturaDTO(0, rs.getString("cobertura"), rs.getString("tipo_cobertura"),
+                        rs.getBigDecimal("porcentaje_cobertura"))));
         return c;
     }
 
@@ -312,7 +327,8 @@ public class CitaRepositoryImpl implements CitaRepository {
     @Override
     public boolean cancelar(int idCita, String motivo, String usuario) {
         return actualizar("UPDATE tt_cita c SET estado_cita = 'CANCELADA', motivo_cancelacion = ?, "
-                + "fecha_cancelacion = CURRENT_TIMESTAMP, cancelada_por = ? WHERE c.id_cita = ? AND " + ACTIVA,
+                + "fecha_cancelacion = CURRENT_TIMESTAMP, "
+                + "id_usuario_cancela = (SELECT id_usuario FROM tt_usuario WHERE nombre_usuario = ?) WHERE c.id_cita = ? AND " + ACTIVA,
                 motivo, usuario, idCita);
     }
 

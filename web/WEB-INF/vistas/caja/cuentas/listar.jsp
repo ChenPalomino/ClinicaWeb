@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="java.net.URLEncoder, modelo.dto.CuentaAtencionDTO, modelo.dto.PaginaDTO, modelo.dto.RangoFechasDTO, modelo.dto.FiltroBusquedaDTO, controlador.FormatoVista" %>
+<%@ page import="java.util.List, java.net.URLEncoder, modelo.dto.ReportePagoDTO, modelo.dto.CuentaAtencionDTO, modelo.dto.PaginaDTO, modelo.dto.RangoFechasDTO, modelo.dto.FiltroBusquedaDTO, controlador.FormatoVista" %>
 <%-- COBROS: listado de cuentas de atención (RF-11). Las pendientes de cobro salen primero. --%>
 <%@ include file="/WEB-INF/vistas/plantilla/cabecera.jspf" %>
 <%!
@@ -20,13 +20,63 @@
     String estadoSel = filtro == null || filtro.getEstado() == null ? "" : filtro.getEstado();
     String base = "q=" + URLEncoder.encode(q, "UTF-8") + (estadoSel.isEmpty() ? "" : "&estado=" + estadoSel);
     RangoFechasDTO rangoFechas = filtro == null ? RangoFechasDTO.SIN_RANGO : filtro.getRango();
-    base += rangoFechas.parametrosUrl();   // conserva las fechas elegidas al paginar o volver
+    base += rangoFechas.parametrosUrl();
+    boolean soloPorCobrar = Boolean.TRUE.equals(request.getAttribute("soloPorCobrar"));
+    @SuppressWarnings("unchecked") List<ReportePagoDTO> reportes = (List<ReportePagoDTO>) request.getAttribute("reportes");
+    if (soloPorCobrar) { base = "estado=PENDIENTE"; }
 %>
+
+<% if (reportes != null && !reportes.isEmpty()) { %>
+<div class="card card-outline card-info" id="pagos-informados">
+    <div class="card-header"><h3 class="card-title"><i class="fas fa-mobile-alt mr-2"></i>Pagos informados desde el portal
+        <span class="badge badge-info ml-1"><%= reportes.size() %></span></h3></div>
+    <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+        <% for (ReportePagoDTO r : reportes) { %>
+            <li class="list-group-item reporte-pago">
+                <div class="d-flex flex-wrap align-items-start" style="gap:.75rem">
+                    <div class="flex-grow-1" style="min-width:220px">
+                        <strong><%= EscapeHtml.texto(r.getNombrePaciente()) %></strong>
+                        <span class="text-muted small">· DNI <%= EscapeHtml.texto(r.getDniPaciente()) %> · <a href="<%= urlLista %>?accion=ver&id=<%= r.getIdCuentaAtencion() %>"><%= EscapeHtml.texto(r.getNumeroCuenta()) %></a></span>
+                        <div class="mt-1"><span class="badge badge-light border"><%= EscapeHtml.texto(r.getNombreBilletera()) %></span>
+                            <% if (!r.getNumeroOperacion().isEmpty()) { %><span class="text-monospace ml-1">Op. <%= EscapeHtml.texto(r.getNumeroOperacion()) %></span><% } %>
+                            <% if (!r.getCelular().isEmpty()) { %><span class="ml-1">Cel. <%= EscapeHtml.texto(r.getCelular()) %></span><% } %>
+                            <% if (!r.getNombrePagador().isEmpty()) { %><span class="ml-1 text-muted">a nombre de <%= EscapeHtml.texto(r.getNombrePagador()) %></span><% } %></div>
+                        <small class="text-muted">Informado <%= FormatoVista.fechaHora(r.getFechaCreacion()) %></small>
+                    </div>
+                    <div class="text-right">
+                        <div class="h5 mb-0 monto">S/ <%= FormatoVista.soles(r.getMonto()) %></div>
+                        <% if (!r.isMontoCoincide()) { %><small class="text-danger d-block">La cuenta suma S/ <%= FormatoVista.soles(r.getTotalCuenta()) %></small><% } %>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap mt-2" style="gap:.5rem">
+                    <form method="POST" action="<%= urlLista %>" data-un-envio>
+                        <input type="hidden" name="accion" value="verificarReporte"><input type="hidden" name="idReporte" value="<%= r.getIdReportePago() %>">
+                        <button type="submit" class="btn btn-success btn-sm" <%= r.isMontoCoincide() ? "" : "disabled" %>><i class="fas fa-check mr-1"></i>Lo vi en la app: confirmar y emitir boleta</button>
+                    </form>
+                    <details class="rechazo-reporte">
+                        <summary class="btn btn-outline-danger btn-sm">No aparece el pago</summary>
+                        <form method="POST" action="<%= urlLista %>" class="form-inline mt-2" data-un-envio>
+                            <input type="hidden" name="accion" value="rechazarReporte"><input type="hidden" name="idReporte" value="<%= r.getIdReportePago() %>">
+                            <label class="sr-only" for="motivo<%= r.getIdReportePago() %>">Motivo</label>
+                            <input type="text" id="motivo<%= r.getIdReportePago() %>" name="motivo" class="form-control form-control-sm mr-2" minlength="5" maxlength="200" required
+                                   value="No encontramos el pago en la app de la clínica">
+                            <button type="submit" class="btn btn-danger btn-sm">Rechazar aviso</button>
+                        </form>
+                    </details>
+                </div>
+            </li>
+        <% } %>
+        </ul>
+    </div>
+    <div class="card-footer small text-muted"><i class="fas fa-info-circle mr-1"></i>Revisa el pago en el celular de la clínica (monto, hora y nombre) antes de confirmar.</div>
+</div>
+<% } %>
 
 <div class="card">
     <div class="card-header d-flex flex-wrap align-items-center">
         <h3 class="card-title mr-auto mb-2 mb-sm-0">
-            <i class="fas fa-cash-register mr-2"></i>Cuentas de atención
+            <i class="fas fa-cash-register mr-2"></i><%= soloPorCobrar ? "Por cobrar" : "Cuentas de atención" %>
             <% if (pendientes != null && pendientes > 0) { %>
             <a href="<%= urlLista %>?estado=PENDIENTE" class="badge badge-warning ml-1" title="Ver solo las que faltan cobrar"><%= pendientes %> por cobrar</a>
             <% } %>
@@ -57,11 +107,17 @@
             <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
             <div class="col-md-12 col-lg mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Buscar</button>
-                <% if (filtro != null && filtro.hayFiltros()) { %><a href="<%= urlLista %>" class="btn btn-link">Limpiar</a><% } %>
+                <% if (!soloPorCobrar) { %><a href="<%= urlLista %>" class="btn btn-link">Volver a «Por cobrar»</a><% } %>
             </div>
         </form>
+        <% if (soloPorCobrar) { %>
+        <p class="small text-muted mb-1 aviso-rango"><i class="fas fa-info-circle mr-1"></i>Se muestran solo las cuentas por cobrar.
+            Para ver pagadas o anuladas, busca o usa: <a href="<%= urlLista %>?estado=PAGADA&desde=<%= java.time.LocalDate.now() %>&hasta=<%= java.time.LocalDate.now() %>">pagadas hoy</a>
+            · <a href="<%= urlLista %>?estado=PAGADA">pagadas (30 días)</a> · <a href="<%= urlLista %>?estado=ANULADA">anuladas</a>.</p>
+        <% } else { %>
         <% request.setAttribute("notaRango", "Las cuentas por cobrar se muestran siempre, aunque sean antiguas."); %>
         <%@ include file="/WEB-INF/vistas/comun/aviso-rango.jspf" %>
+        <% } %>
     </div>
 
     <div class="card-body p-0">
@@ -74,7 +130,10 @@
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-receipt text-muted"></i>
-            <% if (rangoFechas.isPorDefecto() && !filtro.hayFiltros()) { %>
+            <% if (soloPorCobrar) { %>
+                <p class="mb-1"><strong>No hay cuentas por cobrar.</strong></p>
+                <p class="text-muted mb-0">Cuando recepción pulse «Cobrar» en una cita, o abras una cuenta nueva, aparecerá aquí.</p>
+            <% } else if (rangoFechas.isPorDefecto() && !filtro.hayFiltros()) { %>
                 <p class="mb-1"><strong>No hay registros en los últimos <%= RangoFechasDTO.DIAS_POR_DEFECTO %> días.</strong></p>
                 <p class="text-muted mb-0">Busca por nombre o DNI, o elige otras fechas arriba.</p>
             <% } else if (filtro.hayFiltros()) { %>

@@ -49,21 +49,30 @@ public class ParametroClinicaService {
 
     static Map<String, String> validar(ParametroClinicaDTO p) {
         Map<String, String> e = new LinkedHashMap<>();
+        validarEmpresa(p, e);
+        validarReglas(p, e);
+        return e;
+    }
+
+    private static void validarEmpresa(ParametroClinicaDTO p, Map<String, String> e) {
         if (!Validaciones.ruc(p.getRuc())) {
             e.put("ruc", "Escribe un RUC válido de 11 dígitos (con su dígito verificador).");
         }
-        if (p.getRazonSocial().length() < 3 || p.getRazonSocial().length() > 150) {
+        if (!largoEntre(p.getRazonSocial(), 3, 150)) {
             e.put("razonSocial", "La razón social debe tener de 3 a 150 caracteres.");
         }
-        if (p.getNombreComercial().length() < 3 || p.getNombreComercial().length() > 100) {
+        if (!largoEntre(p.getNombreComercial(), 3, 100)) {
             e.put("nombreComercial", "El nombre comercial debe tener de 3 a 100 caracteres.");
         }
-        if (p.getDireccion().length() < 5 || p.getDireccion().length() > 200) {
+        if (!largoEntre(p.getDireccion(), 5, 200)) {
             e.put("direccion", "La dirección debe tener de 5 a 200 caracteres.");
         }
         if (!p.getTelefono().isEmpty() && !p.getTelefono().matches("[0-9 ()+-]{6,20}")) {
             e.put("telefono", "Escribe un teléfono válido (solo números, espacios, paréntesis o guiones).");
         }
+    }
+
+    private static void validarReglas(ParametroClinicaDTO p, Map<String, String> e) {
         if (fueraDeRango(p.getIgvPorcentaje(), BigDecimal.ZERO, new BigDecimal("50"))) {
             e.put("igvPorcentaje", "El IGV debe estar entre 0 y 50 %, con hasta 2 decimales.");
         }
@@ -76,7 +85,10 @@ public class ParametroClinicaService {
         if (p.getDiasMaximosReserva() < 7 || p.getDiasMaximosReserva() > 365) {
             e.put("diasMaximosReserva", "Escribe un número de días entre 7 y 365.");
         }
-        return e;
+    }
+
+    private static boolean largoEntre(String v, int minimo, int maximo) {
+        return v.length() >= minimo && v.length() <= maximo;
     }
 
     private static boolean fueraDeRango(BigDecimal v, BigDecimal min, BigDecimal max) {

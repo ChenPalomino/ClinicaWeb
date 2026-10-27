@@ -1,0 +1,2 @@
+version_base|archivos=2|clases=2|metodos=6|loc=1424|cc_total=402|cc_promedio=67.00|cc_max=150|metodos_cc_mayor_10=4|lineas_duplicadas=110|duplicacion=7.72%
+version_refactorizada|archivos=61|clases=68|metodos=422|loc=4487|cc_total=1025|cc_promedio=2.43|cc_max=10|metodos_cc_mayor_10=0|lineas_duplicadas=0|duplicacion=0.00%

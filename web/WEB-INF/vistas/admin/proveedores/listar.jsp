@@ -15,6 +15,12 @@
     RangoFechasDTO rangoFechas = filtro == null ? RangoFechasDTO.SIN_RANGO : filtro.getRango();
     base += rangoFechas.parametrosUrl();   // conserva las fechas elegidas al paginar o volver
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
+    String queLista = "Los proveedores";
+    String[][] atajos = {
+        {"Proveedores activos", "estado=ACTIVO", "fas fa-check-circle"},
+        {"Registrados este mes", "desde=" + java.time.LocalDate.now().withDayOfMonth(1) + "&hasta=" + java.time.LocalDate.now(), "far fa-calendar-alt"},
+        {"Desactivados", "estado=INACTIVO", "fas fa-ban"}
+    };
 %>
 
 <div class="card">
@@ -47,19 +53,21 @@
             <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
             <div class="col-md-12 col-lg mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Buscar</button>
-                <% if (filtro != null && filtro.hayFiltros()) { %><a href="<%= urlLista %>" class="btn btn-link">Limpiar</a><% } %>
+                <% if (filtro != null) { %><a href="<%= urlLista %>" class="btn btn-link">Limpiar</a><% } %>
             </div>
         </form>
         <%@ include file="/WEB-INF/vistas/comun/aviso-rango.jspf" %>
     </div>
 
     <div class="card-body p-0">
-    <% if (errorDatos || pagina == null) { %>
+    <% if (errorDatos) { %>
         <div class="estado-vacio">
             <i class="fas fa-plug text-warning"></i>
             <p class="mb-1"><strong>No pudimos cargar los proveedores.</strong></p>
             <p class="text-muted">Revisa la conexión con la base de datos y recarga la página.</p>
         </div>
+    <% } else if (pagina == null) { %>
+        <%@ include file="/WEB-INF/vistas/comun/inicio-filtros.jspf" %>
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-truck text-muted"></i>

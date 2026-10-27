@@ -22,7 +22,7 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
         + "       ps.id_unidad_medida, um.abreviatura AS unidad, ps.id_proveedor, "
         + "       COALESCE(pr.nombre_comercial, pr.razon_social) AS proveedor, ps.precio, ps.afecto_igv, "
         + "       ps.stock, ps.stock_minimo, ps.estado, ps.fecha_creacion, ps.usuario_registro "
-        + "FROM tt_producto_servicio ps "
+        + "FROM vw_producto_servicio ps "
         + "JOIN tm_categoria c ON c.id_categoria = ps.id_categoria "
         + "JOIN tm_unidad_medida um ON um.id_unidad_medida = ps.id_unidad_medida "
         + "LEFT JOIN tm_especialidad e ON e.id_especialidad = ps.id_especialidad "
@@ -77,6 +77,9 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
             where.append(" AND ps.id_categoria = ?");
             parametros.add(filtro.getGrupo());
         }
+        if ("REPONER".equals(filtro.getEstado())) {
+            where.append(" AND ps.tipo = 'PRODUCTO' AND ps.estado = 'Activo' AND ps.stock <= COALESCE(ps.stock_minimo, 0)");
+        }
         RepositorioUtil.filtrarEstado(where, "ps", filtro);
         RepositorioUtil.filtrarFechas(where, parametros, "ps.fecha_creacion", filtro.getRango());
         try {
@@ -99,16 +102,26 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
 
     @Override
     public Integer insertar(ProductoServicioDTO p) {
-        String sql = "INSERT INTO tt_producto_servicio (codigo, nombre, descripcion, tipo, id_categoria, id_especialidad, "
-                   + "       id_marca, id_unidad_medida, id_proveedor, precio, afecto_igv, stock, stock_minimo, estado, "
-                   + "       usuario_registro) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_producto_servicio";
-        try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
-            llenar(stmt, p);
-            stmt.setString(15, p.getUsuarioRegistro());
-            try (ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                return rs.getInt(1);
+        String sql = "INSERT INTO tt_producto_servicio (codigo, nombre, descripcion, id_categoria, id_unidad_medida, precio, "
+                   + "       afecto_igv, estado, usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_producto_servicio";
+        try (Connection cn = ConexionBDSingleton.getInstancia().abrirConexionTransaccional()) {
+            try {
+                int id;
+                try (PreparedStatement stmt = cn.prepareStatement(sql)) {
+                    llenar(stmt, p);
+                    stmt.setString(9, p.getUsuarioRegistro());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        rs.next();
+                        id = rs.getInt(1);
+                    }
+                }
+                p.setIdProductoServicio(id);
+                guardarSubtipo(cn, p);
+                cn.commit();
+                return id;
+            } catch (SQLException | RuntimeException e) {
+                cn.rollback();
+                throw e;
             }
         } catch (SQLException e) {
             throw new RepositorioException("Error al registrar el servicio o producto", e);
@@ -117,16 +130,58 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
 
     @Override
     public boolean actualizar(ProductoServicioDTO p) {
-        String sql = "UPDATE tt_producto_servicio SET codigo = ?, nombre = ?, descripcion = ?, tipo = ?, id_categoria = ?, "
-                   + "       id_especialidad = ?, id_marca = ?, id_unidad_medida = ?, id_proveedor = ?, precio = ?, "
-                   + "       afecto_igv = ?, stock = ?, stock_minimo = ?, estado = ? "
-                   + "WHERE id_producto_servicio = ?";
-        try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
-            llenar(stmt, p);
-            stmt.setInt(15, p.getIdProductoServicio());
-            return stmt.executeUpdate() > 0;
+        String sql = "UPDATE tt_producto_servicio SET codigo = ?, nombre = ?, descripcion = ?, id_categoria = ?, "
+                   + "       id_unidad_medida = ?, precio = ?, afecto_igv = ?, estado = ? WHERE id_producto_servicio = ?";
+        try (Connection cn = ConexionBDSingleton.getInstancia().abrirConexionTransaccional()) {
+            try {
+                boolean actualizado;
+                try (PreparedStatement stmt = cn.prepareStatement(sql)) {
+                    llenar(stmt, p);
+                    stmt.setInt(9, p.getIdProductoServicio());
+                    actualizado = stmt.executeUpdate() > 0;
+                }
+                if (actualizado) {
+                    guardarSubtipo(cn, p);
+                }
+                cn.commit();
+                return actualizado;
+            } catch (SQLException | RuntimeException e) {
+                cn.rollback();
+                throw e;
+            }
         } catch (SQLException e) {
             throw new RepositorioException("Error al actualizar el servicio o producto", e);
+        }
+    }
+
+    private static void guardarSubtipo(Connection cn, ProductoServicioDTO p) throws SQLException {
+        String otro = p.isProducto() ? "tt_servicio" : "tt_producto";
+        try (PreparedStatement stmt = cn.prepareStatement("DELETE FROM " + otro + " WHERE id_producto_servicio = ?")) {
+            stmt.setInt(1, p.getIdProductoServicio());
+            stmt.executeUpdate();
+        }
+        if (p.isProducto()) {
+            try (PreparedStatement stmt = cn.prepareStatement(
+                    "INSERT INTO tt_producto (id_producto_servicio, id_marca, id_proveedor, stock, stock_minimo, usuario_registro) "
+                  + "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id_producto_servicio) DO UPDATE SET id_marca = EXCLUDED.id_marca, "
+                  + "id_proveedor = EXCLUDED.id_proveedor, stock = EXCLUDED.stock, stock_minimo = EXCLUDED.stock_minimo")) {
+                stmt.setInt(1, p.getIdProductoServicio());
+                RepositorioUtil.enteroONulo(stmt, 2, p.getIdMarca());
+                RepositorioUtil.enteroONulo(stmt, 3, p.getIdProveedor());
+                stmt.setInt(4, p.getStock() == null ? 0 : p.getStock());
+                stmt.setInt(5, p.getStockMinimo() == null ? 0 : p.getStockMinimo());
+                stmt.setString(6, p.getUsuarioRegistro());
+                stmt.executeUpdate();
+            }
+        } else {
+            try (PreparedStatement stmt = cn.prepareStatement(
+                    "INSERT INTO tt_servicio (id_producto_servicio, id_especialidad, usuario_registro) VALUES (?, ?, ?) "
+                  + "ON CONFLICT (id_producto_servicio) DO UPDATE SET id_especialidad = EXCLUDED.id_especialidad")) {
+                stmt.setInt(1, p.getIdProductoServicio());
+                RepositorioUtil.enteroONulo(stmt, 2, p.getIdEspecialidad());
+                stmt.setString(3, p.getUsuarioRegistro());
+                stmt.executeUpdate();
+            }
         }
     }
 
@@ -170,7 +225,7 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
 
     @Override
     public int contarStockBajo() {
-        String sql = "SELECT COUNT(*) FROM tt_producto_servicio "
+        String sql = "SELECT COUNT(*) FROM vw_producto_servicio "
                    + "WHERE tipo = 'PRODUCTO' AND estado = 'Activo' AND stock <= COALESCE(stock_minimo, 0)";
         try (PreparedStatement stmt = conexion().prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
             rs.next();
@@ -188,21 +243,14 @@ public class ProductoServicioRepositoryImpl implements ProductoServicioRepositor
         }
     }
 
-    /** Los 14 primeros parámetros, iguales en INSERT y UPDATE. */
     private static void llenar(PreparedStatement stmt, ProductoServicioDTO p) throws SQLException {
         stmt.setString(1, p.getCodigo());
         stmt.setString(2, p.getNombre());
         RepositorioUtil.textoONulo(stmt, 3, p.getDescripcion());
-        stmt.setString(4, p.getTipo());
-        stmt.setInt(5, p.getIdCategoria());
-        RepositorioUtil.enteroONulo(stmt, 6, p.getIdEspecialidad());
-        RepositorioUtil.enteroONulo(stmt, 7, p.getIdMarca());
-        stmt.setInt(8, p.getIdUnidadMedida());
-        RepositorioUtil.enteroONulo(stmt, 9, p.getIdProveedor());
-        stmt.setBigDecimal(10, p.getPrecio());
-        stmt.setBoolean(11, p.isAfectoIgv());
-        RepositorioUtil.enteroONulo(stmt, 12, p.getStock());
-        RepositorioUtil.enteroONulo(stmt, 13, p.getStockMinimo());
-        stmt.setString(14, p.getEstado());
+        stmt.setInt(4, p.getIdCategoria());
+        stmt.setInt(5, p.getIdUnidadMedida());
+        stmt.setBigDecimal(6, p.getPrecio());
+        stmt.setBoolean(7, p.isAfectoIgv());
+        stmt.setString(8, p.getEstado());
     }
 }

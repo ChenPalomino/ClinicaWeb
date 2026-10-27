@@ -1,56 +1,25 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="modelo.dto.EstadisticasUsuariosDTO" %>
-<%-- Inicio del ADMINISTRADOR: indicadores y gráficos de usuarios --%>
+<%@ page import="java.util.List, modelo.indicadores.IndicadorStrategy" %>
+<%-- Inicio del ADMINISTRADOR: lo de hoy (consultas livianas) e indicadores que se calculan solo cuando se piden. --%>
 <%@ include file="/WEB-INF/vistas/plantilla/cabecera.jspf" %>
 <%
-    EstadisticasUsuariosDTO est = (EstadisticasUsuariosDTO) request.getAttribute("estadisticas");
     boolean errorDatos = request.getAttribute("errorDatos") != null;
+    @SuppressWarnings("unchecked") List<IndicadorStrategy> indicadores = (List<IndicadorStrategy>) request.getAttribute("indicadores");
+    Integer porCobrar = (Integer) request.getAttribute("porCobrar");
+    Integer pagosInformados = (Integer) request.getAttribute("pagosInformados");
+    modelo.dto.ResumenCitasDTO citasHoy = (modelo.dto.ResumenCitasDTO) request.getAttribute("resumenHoy");
 %>
 
 <%@ include file="/WEB-INF/vistas/comun/bienvenida.jspf" %>
 
 <% if (errorDatos) { %>
-    <div class="alert alert-warning"><i class="fas fa-exclamation-circle mr-2"></i>No pudimos cargar los indicadores. Recarga la página en unos minutos.</div>
+    <div class="alert alert-warning"><i class="fas fa-exclamation-circle mr-2"></i>No pudimos cargar algunos datos de hoy. Recarga la página en unos minutos.</div>
 <% } %>
 
-<% if (est != null) { %>
-<%-- ================= Indicadores del Administrador ================= --%>
+<h2 class="h6 text-muted text-uppercase mb-2">Hoy</h2>
 <div class="row">
-    <div class="col-lg-3 col-6 animar">
-        <div class="small-box bg-info">
-            <div class="inner"><h3 data-contador="<%= est.getTotal() %>"><%= est.getTotal() %></h3><p>Usuarios registrados</p></div>
-            <div class="icon"><i class="fas fa-users"></i></div>
-            <a href="<%= ctx %>/admin/usuarios" class="small-box-footer">Ver todos <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-    </div>
-    <div class="col-lg-3 col-6 animar">
-        <div class="small-box bg-success">
-            <div class="inner"><h3 data-contador="<%= est.getActivos() %>"><%= est.getActivos() %></h3><p>Activos</p></div>
-            <div class="icon"><i class="fas fa-user-check"></i></div>
-            <a href="<%= ctx %>/admin/usuarios?estado=ACTIVO" class="small-box-footer">Ver activos <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-    </div>
-    <div class="col-lg-3 col-6 animar">
-        <div class="small-box bg-danger">
-            <div class="inner"><h3 data-contador="<%= est.getBloqueados() %>"><%= est.getBloqueados() %></h3><p>Bloqueados</p></div>
-            <div class="icon"><i class="fas fa-user-lock"></i></div>
-            <a href="<%= ctx %>/admin/usuarios?estado=BLOQUEADO" class="small-box-footer">Revisar bloqueados <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-    </div>
-    <div class="col-lg-3 col-6 animar">
-        <div class="small-box bg-secondary">
-            <div class="inner"><h3 data-contador="<%= est.getInactivos() %>"><%= est.getInactivos() %></h3><p>Desactivados</p></div>
-            <div class="icon"><i class="fas fa-user-slash"></i></div>
-            <a href="<%= ctx %>/admin/usuarios?estado=INACTIVO" class="small-box-footer">Ver desactivados <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-    </div>
-</div>
-
-<%-- ================= Citas de hoy (todas las especialidades) ================= --%>
-<% modelo.dto.ResumenCitasDTO citasHoy = (modelo.dto.ResumenCitasDTO) request.getAttribute("resumenHoy");
-   if (citasHoy != null) { %>
-<div class="row">
-    <div class="col-md-4 animar">
+    <% if (citasHoy != null) { %>
+    <div class="col-sm-6 col-xl-3 animar">
         <a href="<%= ctx %>/recepcion/citas" class="info-box text-reset">
             <span class="info-box-icon bg-info elevation-1"><i class="fas fa-calendar-day"></i></span>
             <div class="info-box-content"><span class="info-box-text">Citas de hoy</span>
@@ -58,87 +27,90 @@
                 <small class="text-muted"><%= citasHoy.getPendientes() %> por atender</small></div>
         </a>
     </div>
-    <div class="col-md-4 animar">
+    <div class="col-sm-6 col-xl-3 animar">
         <a href="<%= ctx %>/recepcion/citas?estado=ATENDIDA" class="info-box text-reset">
             <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
-            <div class="info-box-content"><span class="info-box-text">Atendidas hoy</span>
+            <div class="info-box-content"><span class="info-box-text">Atendidas</span>
                 <span class="info-box-number"><%= citasHoy.getAtendidas() %></span>
-                <small class="text-muted"><%= citasHoy.getNoAsistio() %> no asistieron</small></div>
+                <small class="text-muted"><%= citasHoy.getNoAsistio() %> no asistieron · <%= citasHoy.getCanceladas() %> canceladas</small></div>
         </a>
     </div>
-    <div class="col-md-4 animar">
-        <a href="<%= ctx %>/recepcion/citas?estado=CANCELADA" class="info-box text-reset">
-            <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-ban"></i></span>
-            <div class="info-box-content"><span class="info-box-text">Canceladas hoy</span>
-                <span class="info-box-number"><%= citasHoy.getCanceladas() %></span>
-                <small class="text-muted">Turnos liberados</small></div>
+    <% } %>
+    <% if (porCobrar != null) { %>
+    <div class="col-sm-6 col-xl-3 animar">
+        <a href="<%= ctx %>/caja/cuentas" class="info-box text-reset">
+            <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-hourglass-half"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Cuentas por cobrar</span>
+                <span class="info-box-number"><%= porCobrar %></span>
+                <small class="text-muted">abiertas en caja</small></div>
         </a>
+    </div>
+    <% } %>
+    <% if (pagosInformados != null) { %>
+    <div class="col-sm-6 col-xl-3 animar">
+        <a href="<%= ctx %>/caja/cuentas#pagos-informados" class="info-box text-reset">
+            <span class="info-box-icon <%= pagosInformados > 0 ? "bg-primary" : "bg-light" %> elevation-1"><i class="fas fa-mobile-alt"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Pagos informados</span>
+                <span class="info-box-number"><%= pagosInformados %></span>
+                <small class="text-muted"><%= pagosInformados > 0 ? "esperan revisión de caja" : "nada por revisar" %></small></div>
+        </a>
+    </div>
+    <% } %>
+</div>
+
+<% if (indicadores != null) { %>
+<div class="card card-outline card-primary animar" id="indicadores">
+    <div class="card-header d-flex flex-wrap align-items-center">
+        <h2 class="card-title h5 mb-0 mr-auto"><i class="fas fa-chart-bar mr-2"></i>Indicadores</h2>
+        <div class="btn-group btn-group-sm flex-wrap periodos" role="radiogroup" aria-label="Periodo">
+            <% String[][] periodos = {{"7", "7 días"}, {"30", "30 días"}, {"mes", "Este mes"}, {"mesAnterior", "Mes anterior"}, {"90", "90 días"}, {"365", "12 meses"}};
+               for (String[] pe : periodos) { %>
+            <button type="button" class="btn btn-outline-primary <%= "30".equals(pe[0]) ? "active" : "" %>" data-periodo="<%= pe[0] %>" role="radio" aria-checked="<%= "30".equals(pe[0]) %>"><%= pe[1] %></button>
+            <% } %>
+        </div>
+    </div>
+    <div class="card-body">
+        <p class="small text-muted mb-3"><i class="fas fa-info-circle mr-1"></i>Elige qué quieres ver. Cada indicador se calcula solo cuando lo pides, así el inicio abre rápido.</p>
+        <div class="catalogo-indicadores">
+        <% String grupo = "";
+           for (IndicadorStrategy i : indicadores) {
+               if (!i.grupo().equals(grupo)) { if (!grupo.isEmpty()) { %></div><% } grupo = i.grupo(); %>
+            <div class="grupo-indicadores"><h3 class="h6 text-muted mb-2"><%= EscapeHtml.texto(grupo) %></h3><%
+               } %>
+            <button type="button" class="indicador-opcion" data-indicador="<%= i.codigo() %>" aria-pressed="false" aria-controls="resultadoIndicador">
+                <i class="<%= i.icono() %>" aria-hidden="true"></i>
+                <span><strong><%= EscapeHtml.texto(i.titulo()) %></strong><small><%= EscapeHtml.texto(i.descripcion()) %></small></span>
+                <% if (!i.usaPeriodo()) { %><span class="badge badge-light border ml-auto align-self-start">Actual</span><% } %>
+            </button>
+        <% } if (!grupo.isEmpty()) { %></div><% } %>
+        </div>
+    </div>
+    <div class="card-footer bg-transparent" id="resultadoIndicador" aria-live="polite" hidden>
+        <div class="d-flex flex-wrap align-items-baseline mb-2">
+            <h3 class="h5 mb-0 mr-2" id="tituloIndicador"></h3>
+            <span class="text-muted small mr-auto" id="periodoIndicador"></span>
+            <a href="#" class="small" id="enlaceIndicador" hidden>Ver el detalle <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <div id="estadoIndicador"></div>
+        <div class="row resumen-indicador" id="resumenIndicador"></div>
+        <div class="grafico grafico-indicador"><canvas id="graficoIndicador" role="img"></canvas></div>
+        <p class="small text-muted mt-2 mb-1" id="notaIndicador"></p>
+        <details class="tabla-indicador"><summary class="small">Ver los datos en tabla</summary><div class="table-responsive" id="tablaIndicador"></div></details>
     </div>
 </div>
 <% } %>
 
-<div class="row">
-    <div class="col-lg-7 animar">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title"><i class="fas fa-chart-bar mr-2"></i>Nuevos usuarios · últimos 14 días</h3>
-                <span class="float-right text-muted small"><strong><%= est.getNuevosUltimos14Dias() %></strong> en total</span>
-            </div>
-            <div class="card-body">
-                <div class="grafico"><canvas id="graficoDias" role="img" aria-label="Usuarios nuevos por día en los últimos 14 días"></canvas></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-5 animar">
-        <div class="card">
-            <div class="card-header"><h3 class="card-title"><i class="fas fa-user-tag mr-2"></i>Usuarios activos por rol</h3></div>
-            <div class="card-body">
-                <div class="grafico"><canvas id="graficoRoles" role="img" aria-label="Usuarios activos por rol"></canvas></div>
-            </div>
-        </div>
+<div class="card animar">
+    <div class="card-header"><h3 class="card-title"><i class="fas fa-bolt mr-2"></i>Accesos rápidos</h3></div>
+    <div class="card-body">
+        <a href="<%= ctx %>/admin/usuarios?accion=nuevo" class="btn btn-primary mb-2"><i class="fas fa-user-plus mr-1"></i> Nuevo usuario</a>
+        <a href="<%= ctx %>/admin/usuarios?estado=BLOQUEADO" class="btn btn-outline-danger mb-2"><i class="fas fa-unlock mr-1"></i> Desbloquear cuentas</a>
+        <a href="<%= ctx %>/admin/especialidades" class="btn btn-outline-secondary mb-2"><i class="fas fa-stethoscope mr-1"></i> Especialidades</a>
+        <a href="<%= ctx %>/admin/billeteras" class="btn btn-outline-secondary mb-2"><i class="fas fa-qrcode mr-1"></i> Billeteras y QR</a>
     </div>
 </div>
-
-<%-- Datos de los gráficos (los dibuja panel.js con Chart.js) y su tabla accesible --%>
-<script type="application/json" id="datosGraficos">
-{"dias": {"etiquetas": [<% for (int i = 0; i < est.getDiasEtiquetas().size(); i++) { %><%= i > 0 ? "," : "" %>"<%= est.getDiasEtiquetas().get(i) %>"<% } %>],
-          "valores": <%= est.getDiasValores() %>},
- "roles": {"etiquetas": [<% for (int i = 0; i < est.getRolesEtiquetas().size(); i++) { %><%= i > 0 ? "," : "" %>"<%= est.getRolesEtiquetas().get(i).replace("\\", "\\\\").replace("\"", "\\\"").replace("<", "\\u003c") %>"<% } %>],
-           "valores": <%= est.getRolesValores() %>}}
-</script>
-
-<div class="row">
-    <div class="col-md-6 animar">
-        <div class="card">
-            <div class="card-header"><h3 class="card-title"><i class="fas fa-bolt mr-2"></i>Accesos rápidos</h3></div>
-            <div class="card-body">
-                <a href="<%= ctx %>/admin/usuarios?accion=nuevo" class="btn btn-primary mb-2"><i class="fas fa-user-plus mr-1"></i> Nuevo usuario</a>
-                <a href="<%= ctx %>/admin/usuarios?estado=BLOQUEADO" class="btn btn-outline-danger mb-2"><i class="fas fa-unlock mr-1"></i> Desbloquear cuentas</a>
-                <a href="<%= ctx %>/admin/usuarios?rol=personal" class="btn btn-outline-secondary mb-2"><i class="fas fa-user-md mr-1"></i> Ver personal</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 animar">
-        <div class="card">
-            <div class="card-header"><h3 class="card-title"><i class="fas fa-users mr-2"></i>Composición</h3></div>
-            <div class="card-body">
-                <%
-                    int total = Math.max(est.getTotal(), 1);
-                    int pctPacientes = Math.round(est.getPacientes() * 100f / total);
-                %>
-                <a href="<%= ctx %>/admin/usuarios?rol=4" class="d-block text-reset mb-1">Pacientes <span class="float-right"><strong><%= est.getPacientes() %></strong></span></a>
-                <div class="progress progress-sm mb-3"><div class="progress-bar bg-primary" style="width: <%= pctPacientes %>%"></div></div>
-                <a href="<%= ctx %>/admin/usuarios?rol=personal" class="d-block text-reset mb-1">Personal de la clínica <span class="float-right"><strong><%= est.getPersonal() %></strong></span></a>
-                <div class="progress progress-sm"><div class="progress-bar bg-info" style="width: <%= 100 - pctPacientes %>%"></div></div>
-            </div>
-        </div>
-    </div>
-</div>
-<% } %>
 
 <%@ include file="/WEB-INF/vistas/comun/modulos.jspf" %>
 
-<% if (est != null) { %>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" defer></script>
-<% } %>
+<script src="<%= ctx %>/js/indicadores.js?v=<%= VersionAplicacion.RECURSOS %>" data-url="<%= ctx %>/admin/indicadores" id="scriptIndicadores" defer></script>
 <%@ include file="/WEB-INF/vistas/plantilla/pie.jspf" %>

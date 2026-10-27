@@ -21,6 +21,14 @@
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
     boolean buscaDni = q.matches("\\d{8}");
     boolean puedeDesactivar = Boolean.TRUE.equals(request.getAttribute("puedeDesactivar"));
+    String queLista = "Los pacientes";
+    String hoyIso = java.time.LocalDate.now().toString();
+    String[][] atajos = {
+        {"Registrados hoy", "desde=" + hoyIso + "&hasta=" + hoyIso, "fas fa-calendar-day"},
+        {"Últimos 7 días", "desde=" + java.time.LocalDate.now().minusDays(6) + "&hasta=" + hoyIso, "fas fa-calendar-week"},
+        {"Últimos 30 días", "q=", "far fa-calendar-alt"},
+        {"Desactivados", "estado=INACTIVO", "fas fa-user-slash"}
+    };
 %>
 
 <div class="card">
@@ -62,19 +70,21 @@
             <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
             <div class="col-md-12 col-lg mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Buscar</button>
-                <% if (filtro != null && filtro.hayFiltros()) { %><a href="<%= urlLista %>" class="btn btn-link">Limpiar</a><% } %>
+                <% if (filtro != null) { %><a href="<%= urlLista %>" class="btn btn-link">Limpiar</a><% } %>
             </div>
         </form>
         <%@ include file="/WEB-INF/vistas/comun/aviso-rango.jspf" %>
     </div>
 
     <div class="card-body p-0">
-    <% if (errorDatos || pagina == null) { %>
+    <% if (errorDatos) { %>
         <div class="estado-vacio">
             <i class="fas fa-plug text-warning"></i>
             <p class="mb-1"><strong>No pudimos cargar los pacientes.</strong></p>
             <p class="text-muted">Revisa la conexión con la base de datos y recarga la página.</p>
         </div>
+    <% } else if (pagina == null) { %>
+        <%@ include file="/WEB-INF/vistas/comun/inicio-filtros.jspf" %>
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-user-injured text-muted"></i>

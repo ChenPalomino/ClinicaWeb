@@ -87,7 +87,7 @@ public class CobranzaService {
                                  int idComprobante, String comprobante, BigDecimal vuelto) {
         static ResultadoCobro conErrores(Map<String, String> errores) { return new ResultadoCobro(errores, null, null, 0, null, null); }
         static ResultadoCobro rechazado(String motivo) { return new ResultadoCobro(Map.of(), motivo, null, 0, null, null); }
-        static ResultadoCobro fallido(String error) { return new ResultadoCobro(Map.of(), null, error, 0, null, null); }
+        public static ResultadoCobro fallido(String error) { return new ResultadoCobro(Map.of(), null, error, 0, null, null); }
         public boolean isExito() { return idComprobante > 0; }
     }
 
@@ -96,9 +96,16 @@ public class CobranzaService {
     public PaginaDTO<CuentaAtencionDTO> listar(FiltroBusquedaDTO filtro) { return cuentas.listar(filtro); }
     public Optional<CuentaAtencionDTO> obtener(int id) { return cuentas.buscarPorId(id); }
     public List<ProductoServicioDTO> itemsVendibles() { return cuentas.itemsVendibles(); }
+    public static final int MAXIMO_RESULTADOS_BUSQUEDA = 12;
+    public List<ProductoServicioDTO> buscarItems(String texto) {
+        return texto == null || texto.trim().length() < 2 ? List.of() : cuentas.buscarItems(texto, MAXIMO_RESULTADOS_BUSQUEDA);
+    }
+    public List<ProductoServicioDTO> itemsFrecuentes() { return cuentas.itemsFrecuentes(6); }
     public List<OpcionDTO> metodosPago() { return pagos.metodosActivos(); }
+    public List<OpcionDTO> billeteras() { return pagos.billeterasActivas(); }
     public List<CuentaAtencionDTO> pagosDelPaciente(int idUsuario) { return cuentas.listarDelUsuarioPaciente(idUsuario); }
     public int contarPendientes() { return cuentas.contarPendientes(); }
+    public Optional<modelo.dto.CoberturaDTO> coberturaDelPaciente(int idPaciente) { return cuentas.coberturaDelPaciente(idPaciente); }
     public ParametroClinicaDTO parametros() { return parametros.get(); }
 
     /** Texto que explica cómo se calcula la cuenta (Strategy de la cobertura). */
@@ -173,30 +180,10 @@ public class CobranzaService {
         }
         List<DetalleCuentaDTO> lineas = new ArrayList<>(cuenta.getDetalles());
         Optional<DetalleCuentaDTO> existente = buscarLinea(cuenta, idItem);
-        if (cantidad == 0) {
-            if (existente.isEmpty()) {
-                return "Ese servicio o producto no está en la cuenta.";
-            }
-            lineas.remove(existente.get());
-        } else {
-            Optional<ProductoServicioDTO> item = cuentas.itemsVendibles().stream()
-                    .filter(i -> i.getIdProductoServicio() == idItem).findFirst();
-            if (item.isEmpty() && existente.isEmpty()) {
-                return "Ese servicio o producto no existe o fue desactivado del tarifario.";
-            }
-            if (item.isPresent() && item.get().getStock() != null && cantidad > item.get().getStock()) {
-                return "Solo quedan " + item.get().getStock() + " unidades de «" + item.get().getNombre() + "».";
-            }
-            if (existente.isPresent()) {
-                existente.get().setCantidad(cantidad);
-            } else {
-                if (lineas.size() >= MAXIMO_LINEAS) {
-                    return "Una cuenta puede tener hasta " + MAXIMO_LINEAS + " líneas.";
-                }
-                lineas.add(nuevaLinea(item.get(), cantidad));
-            }
+        String error = cantidad == 0 ? quitarLinea(lineas, existente) : ponerCantidad(lineas, existente, idItem, cantidad);
+        if (error != null) {
+            return error;
         }
-        // RF-12: todas las líneas se recalculan con la política de la cobertura (Strategy)
         PoliticaTarifariaStrategy politica = PoliticaTarifariaFactory.obtener(cuenta.getTipoCobertura());
         for (DetalleCuentaDTO l : lineas) {
             CalculadoraCuenta.tarifar(l, politica, cuenta.getPorcentajeCobertura());
@@ -205,6 +192,33 @@ public class CobranzaService {
         if (!cuentas.guardarDetalles(cuenta.getIdCuentaAtencion(), lineas, totales, cajero.getNombreUsuario())) {
             return "La cuenta ya no está pendiente (otro usuario la cobró o anuló). No se hicieron cambios.";
         }
+        return null;
+    }
+
+    private static String quitarLinea(List<DetalleCuentaDTO> lineas, Optional<DetalleCuentaDTO> existente) {
+        if (existente.isEmpty()) {
+            return "Ese servicio o producto no está en la cuenta.";
+        }
+        lineas.remove(existente.get());
+        return null;
+    }
+
+    private String ponerCantidad(List<DetalleCuentaDTO> lineas, Optional<DetalleCuentaDTO> existente, int idItem, int cantidad) {
+        Optional<ProductoServicioDTO> item = cuentas.itemVendible(idItem);
+        if (item.isEmpty() && existente.isEmpty()) {
+            return "Ese servicio o producto no existe o fue desactivado del tarifario.";
+        }
+        if (item.isPresent() && item.get().getStock() != null && cantidad > item.get().getStock()) {
+            return "Solo quedan " + item.get().getStock() + " unidades de «" + item.get().getNombre() + "».";
+        }
+        if (existente.isPresent()) {
+            existente.get().setCantidad(cantidad);
+            return null;
+        }
+        if (lineas.size() >= MAXIMO_LINEAS) {
+            return "Una cuenta puede tener hasta " + MAXIMO_LINEAS + " líneas.";
+        }
+        lineas.add(nuevaLinea(item.get(), cantidad));
         return null;
     }
 
@@ -251,7 +265,10 @@ public class CobranzaService {
         TotalesCuenta totales = cuenta.getTotales();
         solicitud.setMonto(cuenta.getTotal());
 
-        // 1. Validar: método de pago (Strategy) y datos del comprobante (Factory Method)
+        if (solicitud.getIdBilletera() != null) {
+            solicitud.setNombreBilletera(pagos.billeterasActivas().stream()
+                    .filter(o -> o.getId() == solicitud.getIdBilletera()).map(OpcionDTO::getNombre).findFirst().orElse(""));
+        }
         Map<String, String> errores = new LinkedHashMap<>();
         MetodoPagoStrategy metodo = MetodoPagoFactory.obtener(codigoMetodo);
         if (metodo == null) {
@@ -274,6 +291,18 @@ public class CobranzaService {
         pago.setMontoRecibido(resultado.getMontoRecibido());
         pago.setVuelto(resultado.getVuelto());
         pago.setReferencia(resultado.getReferencia());
+        pago.setIdReportePago(solicitud.getIdReportePago());
+        if ("TARJETA".equals(metodo.getCodigo())) {
+            pago.setTipoTarjeta(solicitud.getTipoTarjeta());
+            pago.setUltimosDigitos(solicitud.getUltimosDigitos());
+            pago.setCodigoAutorizacion(solicitud.getCodigoAutorizacion());
+        } else if ("BILLETERA".equals(metodo.getCodigo())) {
+            pago.setIdBilletera(solicitud.getIdBilletera());
+            pago.setNombreBilletera(solicitud.getNombreBilletera());
+            pago.setNumeroOperacion(solicitud.getNumeroOperacion());
+            pago.setCelular(solicitud.getCelular());
+            pago.setNombrePagador(solicitud.getNombrePagador());
+        }
         pago.setIdUsuarioCajero(cajero.getIdUsuario());
         pago.setNombreCajero(cajero.getNombreUsuario());
 

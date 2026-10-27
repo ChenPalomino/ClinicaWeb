@@ -60,8 +60,12 @@ public class UsuarioController extends HttpServlet {
                 return;
             }
 
-            // Listado
-            // rol: vacío = todos | "personal" = todos menos pacientes | número = un rol
+            request.setAttribute("roles", servicio.listarRoles());
+            request.setAttribute("tituloPagina", "Usuarios");
+            if (!controlador.ControladorUtil.busquedaSolicitada(request)) {
+                request.getRequestDispatcher(VISTA_LISTA).forward(request, response);
+                return;
+            }
             String rol = request.getParameter("rol");
             boolean soloPersonal = "personal".equals(rol);
             FiltroUsuarioDTO filtro = new FiltroUsuarioDTO(
@@ -69,11 +73,9 @@ public class UsuarioController extends HttpServlet {
                     (rol == null || rol.isBlank() || soloPersonal) ? null : entero(rol, 0),
                     request.getParameter("estado"),
                     entero(request.getParameter("pagina"), 1),
-                    soloPersonal).conRango(controlador.ControladorUtil.rango(request));
+                    soloPersonal).conRango(controlador.ControladorUtil.rango(request, "rol", "estado"));
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
-            request.setAttribute("roles", servicio.listarRoles());
-            request.setAttribute("tituloPagina", "Usuarios");
             request.getRequestDispatcher(VISTA_LISTA).forward(request, response);
 
         } catch (RuntimeException e) {
@@ -110,7 +112,8 @@ public class UsuarioController extends HttpServlet {
                     MensajeFlash.exito(session, id == 0
                             ? "Usuario «" + u.getNombreUsuario() + "» creado correctamente."
                             : "Cambios de «" + u.getNombreUsuario() + "» guardados.");
-                    response.sendRedirect(request.getContextPath() + "/admin/usuarios");
+                    response.sendRedirect(request.getContextPath() + "/admin/usuarios?q="
+                            + java.net.URLEncoder.encode(u.getNombreUsuario(), java.nio.charset.StandardCharsets.UTF_8));
                     return;
                 }
                 case "desactivar":

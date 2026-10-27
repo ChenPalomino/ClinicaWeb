@@ -1,24 +1,26 @@
 <%@ page pageEncoding="UTF-8" %>
-<%--
-    Fragmento COMÚN: pie de tabla con "Mostrando X–Y de Z" y paginación.
-    Necesita las variables: pagina (PaginaDTO), urlLista (String) y base (parámetros de búsqueda).
---%>
-<% if (pagina != null && pagina.getTotal() > 0) { %>
+<% if (pagina != null && pagina.getTotal() > 0) {
+       int pagActual = pagina.getPagina();
+       int pagTotal = pagina.getTotalPaginas();
+       int pagDesde = Math.max(2, pagActual - 2);
+       int pagHasta = Math.min(pagTotal - 1, pagActual + 2); %>
 <div class="card-footer d-flex flex-wrap align-items-center">
     <small class="text-muted mr-auto">Mostrando <%= pagina.getDesde() %>–<%= pagina.getHasta() %> de <%= pagina.getTotal() %></small>
-    <% if (pagina.getTotalPaginas() > 1) { %>
+    <% if (pagTotal > 1) { %>
     <nav aria-label="Páginas">
         <ul class="pagination pagination-sm m-0">
-            <li class="page-item <%= pagina.getPagina() <= 1 ? "disabled" : "" %>">
-                <a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= pagina.getPagina() - 1 %>" aria-label="Anterior">&laquo;</a>
+            <li class="page-item <%= pagActual <= 1 ? "disabled" : "" %>">
+                <a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= pagActual - 1 %>" aria-label="Anterior">&laquo;</a>
             </li>
-            <% for (int i = 1; i <= pagina.getTotalPaginas(); i++) { %>
-            <li class="page-item <%= i == pagina.getPagina() ? "active" : "" %>">
-                <a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= i %>"><%= i %></a>
-            </li>
+            <li class="page-item <%= pagActual == 1 ? "active" : "" %>"><a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=1">1</a></li>
+            <% if (pagDesde > 2) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
+            <% for (int i = pagDesde; i <= pagHasta; i++) { %>
+            <li class="page-item <%= i == pagActual ? "active" : "" %>"><a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= i %>"><%= i %></a></li>
             <% } %>
-            <li class="page-item <%= pagina.getPagina() >= pagina.getTotalPaginas() ? "disabled" : "" %>">
-                <a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= pagina.getPagina() + 1 %>" aria-label="Siguiente">&raquo;</a>
+            <% if (pagHasta < pagTotal - 1) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
+            <li class="page-item <%= pagActual == pagTotal ? "active" : "" %>"><a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= pagTotal %>"><%= pagTotal %></a></li>
+            <li class="page-item <%= pagActual >= pagTotal ? "disabled" : "" %>">
+                <a class="page-link" href="<%= urlLista %>?<%= base %>&pagina=<%= pagActual + 1 %>" aria-label="Siguiente">&raquo;</a>
             </li>
         </ul>
     </nav>

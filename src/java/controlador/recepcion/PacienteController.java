@@ -57,12 +57,15 @@ public class PacienteController extends HttpServlet {
                 mostrarFormulario(request, response, servicio, p.get(), Map.of());
                 return;
             }
-            FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
-                    ControladorUtil.enteroONulo(request.getParameter("cobertura")), null,
-                    ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
-            request.setAttribute("filtro", filtro);
-            request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("coberturas", servicio.coberturas());
+            if (ControladorUtil.busquedaSolicitada(request)) {
+                FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
+                        ControladorUtil.enteroONulo(request.getParameter("cobertura")), null,
+                        ControladorUtil.entero(request.getParameter("pagina"), 1))
+                        .conRango(ControladorUtil.rango(request, "cobertura", "estado"));
+                request.setAttribute("filtro", filtro);
+                request.setAttribute("pagina", servicio.listar(filtro));
+            }
             request.setAttribute("puedeDesactivar",
                     PacienteService.puedeDesactivar((Usuario) request.getSession().getAttribute("usuarioLogueado")));
         } catch (RuntimeException e) {

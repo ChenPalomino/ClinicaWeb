@@ -13,7 +13,8 @@ import modelo.dto.FiltroCitaDTO;
 import modelo.dto.MedicoDTO;
 import modelo.servicios.CitaService;
 import modelo.servicios.CobranzaService;
-import modelo.servicios.UsuarioService;
+import modelo.servicios.IndicadorService;
+import modelo.servicios.ReportePagoService;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -40,7 +41,9 @@ public class InicioController extends HttpServlet {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuarioLogueado");
         if (usuario.getRolId() == Rol.ADMINISTRADOR) {
             try {
-                request.setAttribute("estadisticas", new UsuarioService().estadisticas());
+                request.setAttribute("indicadores", new IndicadorService().catalogo());
+                request.setAttribute("porCobrar", new CobranzaService().contarPendientes());
+                request.setAttribute("pagosInformados", new ReportePagoService().contarPendientes());
             } catch (RuntimeException e) {
                 System.err.println("InicioController: " + e.getMessage());
                 request.setAttribute("errorDatos", true);

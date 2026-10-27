@@ -67,20 +67,34 @@ public class PerfilService {
     public Map<String, String> actualizarDatos(Usuario sesion, PerfilDTO form) {
         PerfilDTO actual = obtener(sesion.getIdUsuario()).orElseThrow();
         Map<String, String> errores = new LinkedHashMap<>();
+        normalizar(form, actual, sesion);
+        validarFormato(form, errores);
+        validarDuplicados(form, actual, sesion, errores);
+        if (!errores.isEmpty()) {
+            return errores;
+        }
+        perfilRepository.actualizarDatos(form, sesion.getNombreUsuario());
+        boolean cambioCorreo = !actual.getCorreo().equalsIgnoreCase(form.getCorreo());
+        evento.EventoSubject.getInstancia().publicar(evento.TipoEvento.PERFIL_EDITADO, sesion, sesion.getIdUsuario(),
+                cambioCorreo ? "Cambió su correo" : null);
+        if (cambioCorreo && !actual.getCorreo().isBlank()) {
+            new NotificacionService().avisarCambioCorreo(new ContactoDTO(actual.getNombres(), actual.getCorreo()), form.getCorreo());
+        }
+        return errores;
+    }
 
+    /** El DNI identifica a la persona: solo se escribe la primera vez (después lo cambia el administrador). */
+    private static void normalizar(PerfilDTO form, PerfilDTO actual, Usuario sesion) {
         form.setIdUsuario(sesion.getIdUsuario());
         form.setNombres(form.getNombres().trim().replaceAll("\\s+", " "));
         form.setApellidos(form.getApellidos().trim().replaceAll("\\s+", " "));
         form.setCorreo(form.getCorreo().trim().toLowerCase());
         form.setCelular(form.getCelular().replaceAll("\\s", ""));
         form.setDescripcion(form.getDescripcion().trim());
-        // El DNI identifica a la persona: solo se escribe la primera vez (después lo cambia el administrador)
-        if (actual.isTieneDatosPersonales()) {
-            form.setDni(actual.getDni());
-        } else {
-            form.setDni(form.getDni().trim());
-        }
+        form.setDni(actual.isTieneDatosPersonales() ? actual.getDni() : form.getDni().trim());
+    }
 
+    private static void validarFormato(PerfilDTO form, Map<String, String> errores) {
         if (!NOMBRE.matcher(form.getNombres()).matches()) errores.put("nombres", "Escribe tus nombres solo con letras (mínimo 2).");
         if (!NOMBRE.matcher(form.getApellidos()).matches()) errores.put("apellidos", "Escribe tus apellidos solo con letras (mínimo 2).");
         if (!DNI.matcher(form.getDni()).matches()) errores.put("dni", "El DNI debe tener exactamente 8 números.");
@@ -95,6 +109,9 @@ public class PerfilService {
         if (form.getDescripcion().length() > MAX_DESCRIPCION) {
             errores.put("descripcion", "Máximo " + MAX_DESCRIPCION + " caracteres.");
         }
+    }
+
+    private void validarDuplicados(PerfilDTO form, PerfilDTO actual, Usuario sesion, Map<String, String> errores) {
         if (!errores.containsKey("correo") && usuarioRepository.existeCorreoExcepto(form.getCorreo(), sesion.getIdUsuario())) {
             errores.put("correo", "Ese correo ya está registrado en otra cuenta.");
         }
@@ -102,19 +119,6 @@ public class PerfilService {
                 && usuarioRepository.existeDniExcepto(form.getDni(), sesion.getIdUsuario())) {
             errores.put("dni", "Ese DNI ya está registrado en otra cuenta.");
         }
-        if (!errores.isEmpty()) {
-            return errores;
-        }
-
-        perfilRepository.actualizarDatos(form, sesion.getNombreUsuario());
-        evento.EventoSubject.getInstancia().publicar(evento.TipoEvento.PERFIL_EDITADO, sesion, sesion.getIdUsuario(),
-                actual.getCorreo().equalsIgnoreCase(form.getCorreo()) ? null : "Cambió su correo");
-
-        // Seguridad: si cambió el correo, se avisa al correo ANTERIOR
-        if (!actual.getCorreo().isBlank() && !actual.getCorreo().equalsIgnoreCase(form.getCorreo())) {
-            new NotificacionService().avisarCambioCorreo(new ContactoDTO(actual.getNombres(), actual.getCorreo()), form.getCorreo());
-        }
-        return errores;
     }
 
     // ---------------------------------------------------------- contraseña
@@ -188,10 +192,21 @@ public class PerfilService {
 
     /** Identifica la imagen por sus primeros bytes ("firma" del formato). */
     static String detectarTipo(byte[] b) {
-        if (b.length > 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) return "image/jpeg";
-        if (b.length > 8 && (b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') return "image/png";
-        if (b.length > 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
-                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') return "image/webp";
+        if (coincide(b, 0, 0xFF, 0xD8, 0xFF)) return "image/jpeg";
+        if (b.length > 8 && coincide(b, 0, 0x89, 'P', 'N', 'G')) return "image/png";
+        if (coincide(b, 0, 'R', 'I', 'F', 'F') && coincide(b, 8, 'W', 'E', 'B', 'P')) return "image/webp";
         return null;
+    }
+
+    private static boolean coincide(byte[] b, int desde, int... firma) {
+        if (b.length <= desde + firma.length) {
+            return false;
+        }
+        for (int i = 0; i < firma.length; i++) {
+            if ((b[desde + i] & 0xFF) != firma[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

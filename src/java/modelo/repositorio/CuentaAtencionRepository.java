@@ -41,6 +41,21 @@ public interface CuentaAtencionRepository {
     /** Servicios y productos activos que se pueden agregar a una cuenta. */
     List<ProductoServicioDTO> itemsVendibles();
 
+    default Optional<ProductoServicioDTO> itemVendible(int idProductoServicio) {
+        return itemsVendibles().stream().filter(i -> i.getIdProductoServicio() == idProductoServicio).findFirst();
+    }
+
+    default List<ProductoServicioDTO> buscarItems(String texto, int limite) {
+        String t = texto == null ? "" : texto.trim().toLowerCase();
+        return itemsVendibles().stream()
+                .filter(i -> (i.getNombre() + " " + i.getCodigo()).toLowerCase().contains(t))
+                .limit(limite).collect(java.util.stream.Collectors.toList());
+    }
+
+    default List<ProductoServicioDTO> itemsFrecuentes(int limite) {
+        return itemsVendibles().stream().limit(limite).collect(java.util.stream.Collectors.toList());
+    }
+
     /** Cuentas pagadas (o anuladas después de pagarse) del paciente con esta cuenta de usuario (portal). */
     List<CuentaAtencionDTO> listarDelUsuarioPaciente(int idUsuario);
 

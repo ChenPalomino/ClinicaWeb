@@ -37,6 +37,7 @@
                         <div class="h6 mb-2"><i class="far fa-clock mr-1 text-muted"></i><%= FechaTexto.hora(c.getHoraInicio()) %> – <%= FechaTexto.hora(c.getHoraFin()) %></div>
                         <div><i class="fas fa-user-md mr-1 text-muted"></i>Dr(a). <%= EscapeHtml.texto(c.getNombreMedico()) %> · <%= EscapeHtml.texto(c.getEspecialidad()) %></div>
                         <div><i class="fas fa-door-open mr-1 text-muted"></i><%= EscapeHtml.texto(c.getConsultorio()) %></div>
+                        <%@ include file="/WEB-INF/vistas/comun/precio-cita.jspf" %>
                     </div>
                 </div>
                 <% if (!c.getMotivo().isBlank()) { %>

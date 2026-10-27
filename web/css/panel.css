@@ -359,3 +359,93 @@ body.dark-mode .card .card.medico-turnos { border-color: #334155 !important; bac
 body.dark-mode .medico-turnos .card-header { background: transparent; border-color: #334155; }
 body.dark-mode .mes-celda.es-hoy { border-color: #60a5fa; }
 body.dark-mode .tabla-agenda tr.cita-siguiente { box-shadow: inset 4px 0 0 #60a5fa; }
+
+.estado-inicial { text-align: center; padding: 40px 16px 44px; max-width: 640px; margin: 0 auto; }
+.estado-inicial-icono { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px;
+    border-radius: 50%; background: #eaf2fc; color: var(--clinica-azul-claro); font-size: 1.6rem; margin-bottom: 12px; }
+.atajos { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
+.atajos .chip-estado { padding: .4rem .85rem; }
+.atajos .chip-estado i { color: var(--clinica-azul-claro); }
+body.dark-mode .estado-inicial-icono { background: #172a46; color: #93c5fd; }
+body.dark-mode .atajos .chip-estado { color: #e2e8f0; }
+body.dark-mode .atajos .chip-estado:hover { border-color: #3b82f6; }
+body.dark-mode .atajos .chip-estado i { color: #93c5fd; }
+
+.precio-opcion { display: block; font-weight: 600; color: #11743a; font-size: .9rem; margin-top: 2px; }
+.opcion-btn.activo .precio-opcion, .opcion-btn.activo .precio-opcion s, .opcion-btn.activo .precio-opcion span { color: #fff !important; }
+.precio-consulta { display: flex; gap: .75rem; align-items: flex-start; padding: .75rem 1rem; border-radius: 8px;
+    background: #f0f8f2; border: 1px solid #cfe8d6; }
+.precio-consulta > i { color: #11743a; margin-top: .4rem; }
+.precio-tag { display: inline-flex; align-items: center; gap: .3rem; font-weight: 600; color: #11743a; }
+body.dark-mode .precio-consulta { background: #11281b; border-color: #1f4d33; }
+body.dark-mode .precio-opcion, body.dark-mode .precio-consulta > i, body.dark-mode .precio-tag { color: #6ee7a0; }
+.precio-cita { margin-top: .35rem; }
+.precio-cita:empty { display: none; }
+
+.resultados-item { position: absolute; z-index: 1050; left: 5px; right: 5px; top: 100%; max-height: 320px; overflow-y: auto; }
+.resultados-item .list-group-item { cursor: pointer; padding: .45rem .75rem; }
+.resultados-item .list-group-item.active { background: #e6eef9; color: inherit; border-color: #c9d8ee; }
+body.dark-mode .resultados-item .list-group-item.active { background: #1a2c47; }
+.chip-item { border-radius: 999px; }
+.montos-rapidos { display: flex; flex-wrap: wrap; gap: .35rem; }
+.qr-caja { border: 1px dashed #c9d3df; border-radius: .5rem; padding: .75rem; background: #fff; }
+body.dark-mode .qr-caja { background: #fff; color: #142235; }
+.qr-imagen { max-width: 180px; image-rendering: pixelated; }
+.reporte-pago .monto { font-variant-numeric: tabular-nums; }
+.rechazo-reporte summary { list-style: none; }
+.rechazo-reporte summary::-webkit-details-marker { display: none; }
+.pasos-pago { counter-reset: paso; list-style: none; padding-left: 0; }
+.pasos-pago > li { position: relative; padding-left: 2.2rem; margin-bottom: .9rem; }
+.pasos-pago > li::before { counter-increment: paso; content: counter(paso); position: absolute; left: 0; top: 0; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: #1e5aa8; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: .85rem; }
+
+.catalogo-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.grupo-indicadores { display: flex; flex-direction: column; gap: .5rem; }
+.indicador-opcion { display: flex; gap: .75rem; align-items: flex-start; text-align: left; width: 100%; padding: .6rem .75rem; border: 1px solid #d9e1ec; border-radius: .5rem; background: transparent; color: inherit; transition: border-color .15s, background .15s; }
+.indicador-opcion:hover { border-color: #1e5aa8; background: #f3f7fd; }
+.indicador-opcion:focus-visible { outline: 2px solid #1e5aa8; outline-offset: 2px; }
+.indicador-opcion.activo { border-color: #1e5aa8; background: #e6eef9; box-shadow: inset 3px 0 0 #1e5aa8; }
+.indicador-opcion > i { color: #1e5aa8; width: 1.25rem; text-align: center; margin-top: .2rem; }
+.indicador-opcion strong { display: block; font-size: .92rem; }
+.indicador-opcion small { display: block; color: #6c757d; line-height: 1.3; }
+body.dark-mode .indicador-opcion { border-color: #3a4b5e; }
+body.dark-mode .indicador-opcion:hover, body.dark-mode .indicador-opcion.activo { background: #1a2c47; border-color: #6ea8ff; }
+body.dark-mode .indicador-opcion > i { color: #6ea8ff; }
+.periodos .btn { white-space: nowrap; }
+.dato-indicador { border: 1px solid #e3e9f1; border-radius: .5rem; padding: .5rem .75rem; height: 100%; }
+.dato-indicador small { display: block; color: #6c757d; text-transform: uppercase; font-size: .7rem; letter-spacing: .03em; }
+.dato-indicador strong { display: block; font-size: 1.15rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dato-indicador span { display: block; font-size: .78rem; color: #6c757d; }
+body.dark-mode .dato-indicador { border-color: #3a4b5e; }
+.grafico-indicador { height: 280px; }
+
+.progreso-dia .progress { height: 6px; background: #e9eef5; }
+.tabla-agenda tr.fila-turno th { background: #f6f8fb; color: #5b6b80; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; padding: .3rem .75rem; border-top: 0; }
+.tabla-agenda tr.fila-ahora td { padding: 0; border: 0; height: 0; position: relative; }
+.tabla-agenda tr.fila-ahora td::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; border-top: 2px solid #dc3545; }
+.tabla-agenda tr.fila-ahora td span { position: absolute; left: .5rem; top: -.65rem; background: #dc3545; color: #fff; font-size: .68rem; font-weight: 700; padding: 0 .4rem; border-radius: 3px; }
+.semana-cita .icono-estado { float: right; margin-top: .15rem; font-size: .75rem; opacity: .8; }
+.semana-cita.estado-RESERVADA .icono-estado { color: #17a2b8; }
+.semana-cita.estado-CONFIRMADA .icono-estado { color: #d39e00; }
+.semana-cita.estado-ATENDIDA .icono-estado { color: #28a745; }
+.semana-cita.atrasada { box-shadow: inset 0 0 0 1px #f0b4b4; }
+.semana-libre { text-align: center; color: #9aa7b6; font-size: .8rem; padding: .5rem 0; }
+.leyenda-estados .semana-cita { padding: .1rem .45rem; }
+.mes-celda.fin-semana { background: #fafbfd; }
+.mes-celda.dia-pasado:not(.es-hoy) .mes-num { color: #8a97a8; }
+.mes-barra { display: flex; height: 5px; border-radius: 3px; overflow: hidden; margin-top: .25rem; background: #eef2f7; }
+.seg-ATENDIDA { background: #28a745; } .seg-RESERVADA { background: #17a2b8; } .seg-NO_ASISTIO { background: #adb5bd; }
+.leyenda-mes > span { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; margin: 0 .25rem 0 .6rem; vertical-align: -1px; }
+.mes-libre { color: #9aa7b6; font-size: .72rem; margin-top: .2rem; }
+.atajos-agenda kbd { font-size: .7rem; padding: .05rem .3rem; }
+body.dark-mode .tabla-agenda tr.fila-turno th { background: #1e293b; color: #94a3b8; }
+body.dark-mode .mes-celda.fin-semana { background: #111c2d; }
+body.dark-mode .mes-barra, body.dark-mode .progreso-dia .progress { background: #26364d; }
+.mini-calendario { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: .8rem; }
+.mini-calendario .cab { color: #6c757d; font-weight: 600; font-size: .7rem; }
+.mini-calendario .dia { padding: .3rem 0; border-radius: 50%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; color: inherit; }
+.mini-calendario .dia.fuera { visibility: hidden; }
+.mini-calendario .dia.pasado { color: #adb5bd; }
+.mini-calendario .dia.hoy { box-shadow: inset 0 0 0 2px #1e5aa8; font-weight: 700; }
+.mini-calendario a.dia.con-cita { background: #1e5aa8; color: #fff; font-weight: 700; }
+.mini-calendario a.dia.con-cita:hover { background: #164a8c; text-decoration: none; }
+body.dark-mode .mini-calendario a.dia.con-cita { background: #6ea8ff; color: #0d1522; }

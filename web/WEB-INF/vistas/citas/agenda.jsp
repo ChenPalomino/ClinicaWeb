@@ -26,6 +26,11 @@
     LocalDate fecha = (LocalDate) request.getAttribute("fecha");
     LocalDate hoy = (LocalDate) request.getAttribute("hoy");
     LocalDateTime ahora = (LocalDateTime) request.getAttribute("ahora");
+    if (vista == null) vista = modelo.citas.vista.VistaAgendaFactory.obtener("dia");
+    if (vistas == null) vistas = modelo.citas.vista.VistaAgendaFactory.todas();
+    if (hoy == null) hoy = LocalDate.now();
+    if (fecha == null) fecha = hoy;
+    if (ahora == null) ahora = LocalDateTime.now();
     FiltroCitaDTO filtro = (FiltroCitaDTO) request.getAttribute("filtroCita");
     @SuppressWarnings("unchecked") List<CitaDTO> citas = (List<CitaDTO>) request.getAttribute("citas");
     @SuppressWarnings("unchecked") Map<LocalDate, ResumenCitasDTO> porDia = (Map<LocalDate, ResumenCitasDTO>) request.getAttribute("porDia");
@@ -44,6 +49,8 @@
                    + (estadoSel.isEmpty() ? "" : "&estado=" + estadoSel) + (q.isEmpty() ? "" : "&q=" + enc(q));
     String codigoVista = vista == null ? "dia" : vista.getCodigo();
     String regreso = AgendaCitas.parametros(request);
+    String[][] leyenda = {{CitaDTO.RESERVADA, "Por llegar"}, {CitaDTO.CONFIRMADA, "En sala"}, {CitaDTO.ATENDIDA, "Atendida"},
+                          {CitaDTO.NO_ASISTIO, "No asistió"}, {CitaDTO.CANCELADA, "Cancelada"}};
 %>
 <% if (!agendaLista) { %>
 <div class="card">
@@ -59,9 +66,9 @@
     <div class="card-header">
         <div class="agenda-barra">
             <div class="btn-group" role="group" aria-label="Moverse en la agenda">
-                <a class="btn btn-outline-secondary btn-sm" href="<%= rutaCitas %>?vista=<%= codigoVista %>&fecha=<%= vista.anterior(fecha) %><%= filtros %>" title="Anterior" aria-label="Anterior"><i class="fas fa-chevron-left"></i></a>
-                <a class="btn btn-outline-secondary btn-sm <%= vista.desde(hoy).equals(vista.desde(fecha)) ? "active" : "" %>" href="<%= rutaCitas %>?vista=<%= codigoVista %>&fecha=<%= hoy %><%= filtros %>">Hoy</a>
-                <a class="btn btn-outline-secondary btn-sm" href="<%= rutaCitas %>?vista=<%= codigoVista %>&fecha=<%= vista.siguiente(fecha) %><%= filtros %>" title="Siguiente" aria-label="Siguiente"><i class="fas fa-chevron-right"></i></a>
+                <a class="btn btn-outline-secondary btn-sm" href="<%= rutaCitas %>?vista=<%= codigoVista %>&fecha=<%= vista.anterior(fecha) %><%= filtros %>" title="Anterior (tecla ←)" aria-label="Anterior" data-atajo="anterior" aria-keyshortcuts="ArrowLeft"><i class="fas fa-chevron-left"></i></a>
+                <a class="btn btn-outline-secondary btn-sm <%= vista.desde(hoy).equals(vista.desde(fecha)) ? "active" : "" %>" href="<%= rutaCitas %>?vista=<%= codigoVista %>&fecha=<%= hoy %><%= filtros %>" data-atajo="hoy" aria-keyshortcuts="h" title="Ir a hoy (tecla H)">Hoy</a>
+                <a class="btn btn-outline-secondary btn-sm" href="<%= rutaCitas %>?vista=<%= codigoVista %>&fecha=<%= vista.siguiente(fecha) %><%= filtros %>" title="Siguiente (tecla →)" aria-label="Siguiente" data-atajo="siguiente" aria-keyshortcuts="ArrowRight"><i class="fas fa-chevron-right"></i></a>
             </div>
             <h2 class="titulo-agenda">
                 <%= EscapeHtml.texto(vista.titulo(fecha)) %>
@@ -158,18 +165,30 @@
                        ResumenCitasDTO r = porDia == null ? null : porDia.get(d);
                        int total = r == null ? 0 : r.getProgramadas();
                        int pendientes = r == null ? 0 : r.getPendientes(); %>
-                <a class="mes-celda <%= d.getMonth() != fecha.getMonth() ? "fuera-mes" : "" %> <%= d.equals(hoy) ? "es-hoy" : "" %>"
+                <a class="mes-celda <%= d.getMonth() != fecha.getMonth() ? "fuera-mes" : "" %> <%= d.equals(hoy) ? "es-hoy" : "" %> <%= d.getDayOfWeek().getValue() >= 6 ? "fin-semana" : "" %> <%= d.isBefore(hoy) ? "dia-pasado" : "" %>"
                    href="<%= rutaCitas %>?vista=dia&fecha=<%= d %><%= filtros %>" role="gridcell"
                    title="<%= FechaTexto.largaTitulo(d) %>: <%= total %> <%= total == 1 ? "cita" : "citas" %>">
                     <span class="mes-num"><%= d.getDayOfMonth() %></span>
-                    <% if (total > 0) { %>
-                    <span class="mes-total"><span class="badge badge-info"><%= total %></span> <small><%= total == 1 ? "cita" : "citas" %></small></span>
-                    <% if (pendientes > 0 && !d.isBefore(hoy)) { %><small class="text-muted d-block"><%= pendientes %> por atender</small><% } %>
+                    <% if (d.equals(hoy)) { %><span class="badge badge-primary ml-1 align-text-top">Hoy</span><% } %>
+                    <% if (total > 0) {
+                           int atendidas = r.getAtendidas(), faltaron = r.getNoAsistio(); %>
+                    <span class="mes-total"><strong><%= total %></strong> <small><%= total == 1 ? "cita" : "citas" %></small></span>
+                    <span class="mes-barra" aria-hidden="true">
+                        <% if (atendidas > 0) { %><span class="seg-ATENDIDA" style="flex:<%= atendidas %>"></span><% } %>
+                        <% if (pendientes > 0) { %><span class="seg-RESERVADA" style="flex:<%= pendientes %>"></span><% } %>
+                        <% if (faltaron > 0) { %><span class="seg-NO_ASISTIO" style="flex:<%= faltaron %>"></span><% } %>
+                    </span>
+                    <small class="mes-detalle text-muted d-block"><%= !d.isBefore(hoy) && pendientes > 0 ? pendientes + " por atender" : atendidas > 0 ? atendidas + " atendidas" : "" %></small>
+                    <% } else if (d.getMonth() == fecha.getMonth() && !d.isBefore(hoy)) { %>
+                    <small class="mes-libre d-block">Libre</small>
                     <% } %>
                 </a>
                 <% } %>
             </div>
-            <p class="small text-muted mt-2 mb-0"><i class="fas fa-info-circle mr-1"></i>Haz clic en un día para ver sus citas.</p>
+            <div class="d-flex flex-wrap align-items-center mt-2 small text-muted" style="gap:.75rem">
+                <span><i class="fas fa-info-circle mr-1"></i>Haz clic en un día para ver sus citas.</span>
+                <span class="leyenda-mes"><span class="seg-ATENDIDA"></span>Atendidas <span class="seg-RESERVADA"></span>Por atender <span class="seg-NO_ASISTIO"></span>No asistieron</span>
+            </div>
         </div>
     <% } else if ("semana".equals(codigoVista)) {
            Map<LocalDate, List<CitaDTO>> dias = new TreeMap<>();
@@ -182,9 +201,11 @@
                     <small class="text-muted"><%= FechaTexto.diaCorto(d) %></small><span class="num"><%= d.getDayOfMonth() %></span>
                     <small class="text-muted"><%= delDia.isEmpty() ? "Sin citas" : delDia.size() + (delDia.size() == 1 ? " cita" : " citas") %></small>
                 </a>
+                <% if (delDia.isEmpty()) { %><div class="semana-libre"><%= d.isBefore(hoy) ? "—" : "Libre" %></div><% } %>
                 <% for (CitaDTO c : delDia) { %>
-                <a class="semana-cita estado-<%= c.getEstadoCita() %>" href="<%= rutaCitas %>?accion=ver&id=<%= c.getIdCita() %>"
+                <a class="semana-cita estado-<%= c.getEstadoCita() %> <%= c.getFin().isBefore(ahora) && c.isActiva() ? "atrasada" : "" %>" href="<%= rutaCitas %>?accion=ver&id=<%= c.getIdCita() %>"
                    title="<%= EscapeHtml.texto(c.getNombrePaciente() + " · " + c.getEstadoLegible()) %>">
+                    <i class="<%= c.getIconoEstado() %> icono-estado" aria-hidden="true"></i><span class="sr-only"><%= c.getEstadoLegible() %>: </span>
                     <strong><%= FechaTexto.hora(c.getHoraInicio()) %></strong><br>
                     <%= EscapeHtml.texto(nombreCorto(c.getNombrePaciente())) %>
                     <% if (!modoMedico) { %><br><small class="text-muted"><%= EscapeHtml.texto(c.getEspecialidad()) %></small><% } %>
@@ -192,6 +213,9 @@
                 <% } %>
             </div>
             <% } %>
+        </div>
+        <div class="leyenda-estados small text-muted px-3 py-2 border-top" aria-label="Leyenda de estados">
+            <% for (String[] l : leyenda) { %><span class="semana-cita estado-<%= l[0] %> d-inline-block mb-0 mr-2"><i class="<%= CitaDTO.iconoEstado(l[0]) %> mr-1" aria-hidden="true"></i><%= l[1] %></span><% } %>
         </div>
     <% } else if (citas.isEmpty()) { %>
         <div class="estado-vacio">
@@ -211,9 +235,38 @@
     <% } else {
            // La "siguiente" cita: la primera aún activa que no terminó (se resalta para ubicarse rápido)
            int idSiguiente = 0;
+           CitaDTO siguiente = null;
            if (fecha.equals(hoy)) {
-               for (CitaDTO c : citas) { if (c.isActiva() && c.getFin().isAfter(ahora)) { idSiguiente = c.getIdCita(); break; } }
-           } %>
+               for (CitaDTO c : citas) { if (c.isActiva() && c.getFin().isAfter(ahora)) { idSiguiente = c.getIdCita(); siguiente = c; break; } }
+           }
+           int totalDia = 0, atendidasDia = 0, faltaronDia = 0, enSala = 0;
+           for (CitaDTO c : citas) {
+               if (c.isCancelada()) continue;
+               totalDia++;
+               if (c.isAtendida()) atendidasDia++;
+               if (c.isNoAsistio()) faltaronDia++;
+               if (c.isConfirmada()) enSala++;
+           }
+           int columnas = modoMedico ? 4 : 5;
+           boolean marcaAhora = fecha.equals(hoy) && "dia".equals(codigoVista);
+           String turno = ""; %>
+        <% if ("dia".equals(codigoVista) && totalDia > 0) { %>
+        <div class="progreso-dia px-3 pt-3 pb-2 border-bottom">
+            <div class="d-flex flex-wrap align-items-baseline" style="gap:.25rem 1rem">
+                <strong><%= atendidasDia %> de <%= totalDia %> atendidas</strong>
+                <% if (enSala > 0) { %><span class="text-warning"><i class="fas fa-user-clock mr-1"></i><%= enSala %> en sala de espera</span><% } %>
+                <% if (siguiente != null) {
+                       long minutos = java.time.Duration.between(ahora, siguiente.getInicio()).toMinutes(); %>
+                <span class="text-primary"><i class="fas fa-arrow-right mr-1"></i>Siguiente: <strong><%= EscapeHtml.texto(nombreCorto(siguiente.getNombrePaciente())) %></strong>
+                    a las <%= FechaTexto.hora(siguiente.getHoraInicio()) %><%= minutos > 0 ? " (en " + (minutos >= 60 ? minutos / 60 + " h " + minutos % 60 + " min" : minutos + " min") + ")" : minutos > -15 ? " (ahora)" : " (con retraso)" %></span>
+                <% } else if (fecha.equals(hoy)) { %><span class="text-success"><i class="fas fa-check mr-1"></i>No quedan citas por atender hoy</span><% } %>
+            </div>
+            <div class="progress progress-xs mt-2" role="progressbar" aria-label="Avance del día" aria-valuemin="0" aria-valuemax="<%= totalDia %>" aria-valuenow="<%= atendidasDia + faltaronDia %>">
+                <div class="progress-bar bg-success" style="width:<%= atendidasDia * 100 / totalDia %>%"></div>
+                <div class="progress-bar bg-secondary" style="width:<%= faltaronDia * 100 / totalDia %>%"></div>
+            </div>
+        </div>
+        <% } %>
         <div class="table-responsive">
         <table class="table table-hover mb-0 tabla-agenda">
             <thead class="thead-light">
@@ -227,6 +280,15 @@
             </thead>
             <tbody>
             <% for (CitaDTO c : citas) {
+                   if ("dia".equals(codigoVista)) {
+                       String t = c.getHoraInicio().getHour() < 13 ? "Mañana" : "Tarde";
+                       if (!t.equals(turno)) { turno = t; %>
+                <tr class="fila-turno"><th colspan="<%= columnas %>" scope="rowgroup"><i class="fas <%= "Mañana".equals(t) ? "fa-sun" : "fa-cloud-sun" %> mr-1" aria-hidden="true"></i><%= t %></th></tr>
+                <%     }
+                       if (marcaAhora && c.getInicio().isAfter(ahora)) { marcaAhora = false; %>
+                <tr class="fila-ahora" aria-hidden="true"><td colspan="<%= columnas %>"><span>Ahora · <%= String.format("%02d:%02d", ahora.getHour(), ahora.getMinute()) %></span></td></tr>
+                <%     }
+                   }
                    AccionesCita ac = new AccionesCita(c, usuarioSesion, ahora, horas);
                    boolean pasada = !c.isActiva() || c.getFin().isBefore(ahora);
                    String resumenCita = c.getNombrePaciente() + " · " + FechaTexto.relativa(c.getFecha(), hoy) + " a las " + FechaTexto.hora(c.getHoraInicio())
@@ -306,6 +368,7 @@
             </tbody>
         </table>
         </div>
+        <p class="small text-muted px-3 py-2 mb-0 d-none d-md-block atajos-agenda"><i class="far fa-keyboard mr-1"></i>Atajos: <kbd>←</kbd> <kbd>→</kbd> para cambiar de <%= vista.getNombre().toLowerCase() %>, <kbd>H</kbd> para volver a hoy.</p>
         <% if (citas.size() >= FiltroCitaDTO.MAXIMO_FILAS) { %>
         <p class="small text-muted p-2 mb-0">Se muestran las primeras <%= FiltroCitaDTO.MAXIMO_FILAS %> citas. Filtra por médico para ver menos.</p>
         <% } %>

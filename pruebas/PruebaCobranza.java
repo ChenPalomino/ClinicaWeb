@@ -138,7 +138,7 @@ public class PruebaCobranza {
 
         MetodoPagoStrategy bi = MetodoPagoFactory.obtener("BILLETERA");
         SolicitudPago sb = new SolicitudPago(); sb.setMonto(bd("80"));
-        sb.setAplicacion("yape"); sb.setNumeroOperacion("12345678"); sb.setCelular("987 654 321");
+        sb.setIdBilletera(1); sb.setNombreBilletera("Yape"); sb.setNumeroOperacion("12345678"); sb.setCelular("987 654 321");
         check("billetera válida", bi.validar(sb).isEmpty());
         r = bi.procesar(sb);
         check("billetera oculta el celular: " + r.getReferencia(), r.isAprobado() && r.getReferencia().contains("***321") && !r.getReferencia().contains("987654321"));

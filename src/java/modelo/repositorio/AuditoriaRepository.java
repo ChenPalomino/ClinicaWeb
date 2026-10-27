@@ -15,6 +15,9 @@ public interface AuditoriaRepository {
 
     void registrar(EventoSistema evento);
 
+    default void sincronizarAcciones() {
+    }
+
     PaginaDTO<AuditoriaDTO> listar(FiltroAuditoriaDTO filtro);
 
     /** Últimos movimientos de un registro (ej. historial de un paciente). */

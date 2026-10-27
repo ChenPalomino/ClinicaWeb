@@ -2,6 +2,12 @@ package controlador.caja;
 
 import controlador.ControladorUtil;
 import controlador.MensajeFlash;
+import controlador.JsonUtil;
+import controlador.FormatoVista;
+import modelo.dto.ProductoServicioDTO;
+import modelo.dto.ReportePagoDTO;
+import modelo.servicios.BilleteraService;
+import modelo.servicios.ReportePagoService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -17,6 +23,7 @@ import modelo.servicios.CobranzaService;
 import modelo.servicios.PacienteService;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -52,6 +59,10 @@ public class CuentaAtencionController extends HttpServlet {
                 request.getRequestDispatcher(VISTA_NUEVA).forward(request, response);
                 return;
             }
+            if ("items".equals(accion)) {
+                responderItems(response, servicio.buscarItems(request.getParameter("q")));
+                return;
+            }
             if ("ver".equals(accion)) {
                 Optional<CuentaAtencionDTO> cuenta = servicio.obtener(ControladorUtil.entero(request.getParameter("id"), 0));
                 if (cuenta.isEmpty()) {
@@ -62,11 +73,17 @@ public class CuentaAtencionController extends HttpServlet {
                 mostrarDetalle(request, response, servicio, cuenta.get());
                 return;
             }
-            FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
-                    null, null, ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
+            boolean soloPorCobrar = !ControladorUtil.busquedaSolicitada(request);
+            FiltroBusquedaDTO filtro = soloPorCobrar
+                    ? new FiltroBusquedaDTO(null, CuentaAtencionDTO.PENDIENTE, null, null, 1)
+                    : new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"), null, null,
+                            ControladorUtil.entero(request.getParameter("pagina"), 1))
+                            .conRango(ControladorUtil.rango(request, "estado"));
+            request.setAttribute("soloPorCobrar", soloPorCobrar);
             request.setAttribute("filtro", filtro);
             request.setAttribute("pagina", servicio.listar(filtro));
             request.setAttribute("pendientes", servicio.contarPendientes());
+            request.setAttribute("reportes", new ReportePagoService().pendientes());
         } catch (RuntimeException e) {
             System.err.println("CuentaAtencionController: " + e.getMessage());
             request.setAttribute("errorDatos", true);
@@ -82,90 +99,152 @@ public class CuentaAtencionController extends HttpServlet {
         request.setAttribute("parametros", servicio.parametros());
         request.setAttribute("puedeAnular", CobranzaService.puedeAnular(usuario(request)));
         if (cuenta.isPendiente()) {
-            request.setAttribute("items", servicio.itemsVendibles());
+            request.setAttribute("frecuentes", servicio.itemsFrecuentes());
             request.setAttribute("metodos", servicio.metodosPago());
+            request.setAttribute("billeteras", servicio.billeteras());
+            request.setAttribute("configBilletera", new BilleteraService().configuracion());
+            new ReportePagoService().ultimoDeCuenta(cuenta.getIdCuentaAtencion())
+                    .filter(ReportePagoDTO::isPendiente).ifPresent(r -> request.setAttribute("reporte", r));
         }
         request.setAttribute("tituloPagina", "Cuenta " + cuenta.getNumeroCuenta());
         request.getRequestDispatcher(VISTA_DETALLE).forward(request, response);
     }
 
+    /** Datos de una petición POST de caja, para que cada acción sea un método corto. */
+    private record Peticion(HttpServletRequest request, HttpServletResponse response, HttpSession session, Usuario usuario,
+                            CobranzaService servicio, int id, String verCuenta) {
+        String lista() { return request.getContextPath() + RUTA; }
+        String parametro(String nombre) { return request.getParameter(nombre); }
+        int entero(String nombre, int porDefecto) { return ControladorUtil.entero(request.getParameter(nombre), porDefecto); }
+    }
+
+    @FunctionalInterface
+    private interface Accion {
+        String ejecutar(Peticion p) throws ServletException, IOException;
+    }
+
+    private final Map<String, Accion> acciones = Map.of(
+            "abrir", this::abrir,
+            "agregar", p -> resultado(p, p.servicio().agregarItem(p.id(), p.entero("idItem", 0), p.entero("cantidad", 1), p.usuario())),
+            "cantidad", p -> resultado(p, p.servicio().cambiarCantidad(p.id(), p.entero("idItem", 0), p.entero("cantidad", -1), p.usuario())),
+            "quitar", p -> resultado(p, p.servicio().cambiarCantidad(p.id(), p.entero("idItem", 0), 0, p.usuario())),
+            "cobrar", this::cobrar,
+            "verificarReporte", this::verificarReporte,
+            "rechazarReporte", this::rechazarReporte,
+            "anular", this::anular);
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         request.setCharacterEncoding("UTF-8");
-        HttpSession session = request.getSession();
-        Usuario usuario = usuario(request);
-        CobranzaService servicio = new CobranzaService();
-        String accion = request.getParameter("accion");
         int id = ControladorUtil.entero(request.getParameter("id"), 0);
-        int idItem = ControladorUtil.entero(request.getParameter("idItem"), 0);
-        String verCuenta = request.getContextPath() + RUTA + "?accion=ver&id=" + id;
-        String destino = verCuenta;
+        Peticion p = new Peticion(request, response, request.getSession(), usuario(request), new CobranzaService(), id,
+                request.getContextPath() + RUTA + "?accion=ver&id=" + id);
+        Accion accion = acciones.get(String.valueOf(request.getParameter("accion")));
+        String destino;
         try {
-            switch (accion == null ? "" : accion) {
-                case "abrir": {
-                    CobranzaService.Apertura a = servicio.abrirCuenta(ControladorUtil.entero(request.getParameter("idPaciente"), 0),
-                            request.getParameter("observacion"), usuario);
-                    if (!a.isExito()) {
-                        MensajeFlash.error(session, a.error());
-                        destino = request.getContextPath() + RUTA + "?accion=nueva";
-                    } else {
-                        if (a.yaExistia()) {
-                            MensajeFlash.aviso(session, "Este paciente ya tenía una cuenta pendiente: continúa con ella.");
-                        }
-                        destino = request.getContextPath() + RUTA + "?accion=ver&id=" + a.idCuenta();
-                    }
-                    break;
-                }
-                case "agregar":
-                    error(session, servicio.agregarItem(id, idItem, ControladorUtil.entero(request.getParameter("cantidad"), 1), usuario));
-                    break;
-                case "cantidad":
-                    error(session, servicio.cambiarCantidad(id, idItem, ControladorUtil.entero(request.getParameter("cantidad"), -1), usuario));
-                    break;
-                case "quitar":
-                    error(session, servicio.cambiarCantidad(id, idItem, 0, usuario));
-                    break;
-                case "cobrar": {
-                    SolicitudPago solicitud = leerSolicitud(request);
-                    DatosClienteDTO cliente = leerCliente(request);
-                    CobranzaService.ResultadoCobro r = servicio.cobrar(id, request.getParameter("metodo"), solicitud, cliente, usuario);
-                    if (!r.errores().isEmpty()) {
-                        Optional<CuentaAtencionDTO> cuenta = servicio.obtener(id);
-                        if (cuenta.isPresent()) {
-                            request.setAttribute("errores", r.errores());
-                            request.setAttribute("solicitud", solicitud);
-                            request.setAttribute("cliente", cliente);
-                            request.setAttribute("metodoElegido", request.getParameter("metodo"));
-                            request.setAttribute("menuActivo", "cobros");
-                            mostrarDetalle(request, response, servicio, cuenta.get());
-                            return;
-                        }
-                    }
-                    if (r.rechazo() != null) {
-                        MensajeFlash.error(session, "Pago NO aprobado: " + r.rechazo() + " La cuenta sigue pendiente.");
-                    } else if (r.error() != null) {
-                        MensajeFlash.error(session, r.error());
-                    } else {
-                        String vuelto = r.vuelto() != null && r.vuelto().signum() > 0
-                                ? " Entrega S/ " + r.vuelto().setScale(2).toPlainString() + " de vuelto." : "";
-                        MensajeFlash.exito(session, "Cobro registrado. Comprobante " + r.comprobante() + "." + vuelto);
-                        destino = request.getContextPath() + "/caja/comprobante?id=" + r.idComprobante();
-                    }
-                    break;
-                }
-                case "anular":
-                    ControladorUtil.resultado(session, servicio.anular(id, request.getParameter("motivo"), usuario),
-                            "Cuenta anulada. Si estaba pagada, el pago y el comprobante quedaron anulados y el stock se devolvió.");
-                    break;
-                default:
-                    MensajeFlash.error(session, "Acción no reconocida.");
-                    destino = request.getContextPath() + RUTA;
-            }
+            destino = accion == null ? desconocida(p) : accion.ejecutar(p);
         } catch (RuntimeException e) {
             System.err.println("CuentaAtencionController: " + e.getMessage());
-            MensajeFlash.error(session, "No se pudo completar la operación. Inténtalo de nuevo en unos minutos.");
+            MensajeFlash.error(p.session(), "No se pudo completar la operación. Inténtalo de nuevo en unos minutos.");
+            destino = p.verCuenta();
         }
-        response.sendRedirect(destino);
+        if (destino != null) {
+            response.sendRedirect(destino);
+        }
+    }
+
+    private static String desconocida(Peticion p) {
+        MensajeFlash.error(p.session(), "Acción no reconocida.");
+        return p.lista();
+    }
+
+    private static String resultado(Peticion p, String error) {
+        error(p.session(), error);
+        return p.verCuenta();
+    }
+
+    private String abrir(Peticion p) {
+        CobranzaService.Apertura a = p.servicio().abrirCuenta(p.entero("idPaciente", 0), p.parametro("observacion"), p.usuario());
+        if (!a.isExito()) {
+            MensajeFlash.error(p.session(), a.error());
+            return p.lista() + "?accion=nueva";
+        }
+        if (a.yaExistia()) {
+            MensajeFlash.aviso(p.session(), "Este paciente ya tenía una cuenta pendiente: continúa con ella.");
+        }
+        return p.lista() + "?accion=ver&id=" + a.idCuenta();
+    }
+
+    private String cobrar(Peticion p) throws ServletException, IOException {
+        SolicitudPago solicitud = leerSolicitud(p.request());
+        DatosClienteDTO cliente = leerCliente(p.request());
+        CobranzaService.ResultadoCobro r = p.servicio().cobrar(p.id(), p.parametro("metodo"), solicitud, cliente, p.usuario());
+        Optional<CuentaAtencionDTO> cuenta = r.errores().isEmpty() ? Optional.empty() : p.servicio().obtener(p.id());
+        if (cuenta.isPresent()) {
+            HttpServletRequest request = p.request();
+            request.setAttribute("errores", r.errores());
+            request.setAttribute("solicitud", solicitud);
+            request.setAttribute("cliente", cliente);
+            request.setAttribute("metodoElegido", p.parametro("metodo"));
+            request.setAttribute("menuActivo", "cobros");
+            mostrarDetalle(request, p.response(), p.servicio(), cuenta.get());
+            return null;
+        }
+        if (r.rechazo() != null) {
+            MensajeFlash.error(p.session(), "Pago NO aprobado: " + r.rechazo() + " La cuenta sigue pendiente.");
+            return p.verCuenta();
+        }
+        if (r.error() != null) {
+            MensajeFlash.error(p.session(), r.error());
+            return p.verCuenta();
+        }
+        String vuelto = r.vuelto() != null && r.vuelto().signum() > 0
+                ? " Entrega S/ " + r.vuelto().setScale(2).toPlainString() + " de vuelto." : "";
+        MensajeFlash.exito(p.session(), "Cobro registrado. Comprobante " + r.comprobante() + "." + vuelto);
+        return p.request().getContextPath() + "/caja/comprobante?id=" + r.idComprobante();
+    }
+
+    private String verificarReporte(Peticion p) {
+        CobranzaService.ResultadoCobro r = new ReportePagoService().verificar(p.entero("idReporte", 0), p.usuario());
+        if (r.isExito()) {
+            MensajeFlash.exito(p.session(), "Pago confirmado. Se emitió la boleta " + r.comprobante() + ".");
+            return p.request().getContextPath() + "/caja/comprobante?id=" + r.idComprobante();
+        }
+        String motivo = r.rechazo() != null ? "Pago NO aprobado: " + r.rechazo() : r.error();
+        MensajeFlash.error(p.session(), motivo != null ? motivo : "Revisa los datos del pago informado.");
+        return p.id() > 0 ? p.verCuenta() : p.lista();
+    }
+
+    private String rechazarReporte(Peticion p) {
+        String error = new ReportePagoService().rechazar(p.entero("idReporte", 0), p.parametro("motivo"), p.usuario());
+        ControladorUtil.resultado(p.session(), error, "Aviso de pago rechazado. El paciente verá el motivo en «Mis citas».");
+        return p.id() > 0 ? p.verCuenta() : p.lista();
+    }
+
+    private String anular(Peticion p) {
+        ControladorUtil.resultado(p.session(), p.servicio().anular(p.id(), p.parametro("motivo"), p.usuario()),
+                "Cuenta anulada. Si estaba pagada, el pago y el comprobante quedaron anulados y el stock se devolvió.");
+        return p.verCuenta();
+    }
+
+    private static void responderItems(HttpServletResponse response, java.util.List<ProductoServicioDTO> items) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        StringBuilder sb = new StringBuilder("[");
+        for (ProductoServicioDTO it : items) {
+            if (sb.length() > 1) {
+                sb.append(',');
+            }
+            sb.append("{\"id\":").append(it.getIdProductoServicio())
+              .append(",\"codigo\":").append(JsonUtil.texto(it.getCodigo()))
+              .append(",\"nombre\":").append(JsonUtil.texto(it.getNombre()))
+              .append(",\"tipo\":").append(JsonUtil.texto(it.getTipo()))
+              .append(",\"categoria\":").append(JsonUtil.texto(it.getNombreCategoria()))
+              .append(",\"precio\":").append(JsonUtil.texto(FormatoVista.soles(it.getPrecio())))
+              .append(",\"stock\":").append(it.getStock() == null ? "null" : it.getStock().toString())
+              .append('}');
+        }
+        response.getWriter().write(sb.append(']').toString());
     }
 
     private static void error(HttpSession session, String mensaje) {
@@ -184,7 +263,8 @@ public class CuentaAtencionController extends HttpServlet {
         s.setTipoTarjeta(request.getParameter("tipoTarjeta"));
         s.setUltimosDigitos(request.getParameter("ultimosDigitos"));
         s.setCodigoAutorizacion(request.getParameter("codigoAutorizacion"));
-        s.setAplicacion(request.getParameter("aplicacion"));
+        s.setIdBilletera(ControladorUtil.enteroONulo(request.getParameter("idBilletera")));
+        s.setNombrePagador(request.getParameter("nombrePagador"));
         s.setNumeroOperacion(request.getParameter("numeroOperacion"));
         s.setCelular(request.getParameter("celular"));
         return s;

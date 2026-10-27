@@ -33,6 +33,9 @@ public class AutenticacionFilter implements Filter {
             "/jsp/nueva-contrasena.jsp"
     );
 
+    /** Imágenes que piden las etiquetas <img>: no llevan el identificador de la pestaña. */
+    private static final Set<String> IMAGENES = Set.of("/foto", "/qr-pago");
+
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
             throws IOException, ServletException {
@@ -45,42 +48,44 @@ public class AutenticacionFilter implements Filter {
         boolean logueado = session != null && session.getAttribute("usuarioLogueado") != null;
 
         if (PAGINAS_PUBLICAS.contains(ruta)) {
-            // Si ya inició sesión y vuelve al login, lo mandamos al menú
-            if (logueado && ruta.equals("/jsp/login.jsp")) {
-                response.sendRedirect(request.getContextPath() + "/panel");
-                return;
-            }
-            chain.doFilter(req, res);
+            paginaPublica(request, response, chain, ruta, logueado);
             return;
         }
-
-        // Fotos de perfil: basta con que alguna pestaña de este navegador tenga sesión
-        // (las etiquetas <img> no llevan el identificador de la pestaña)
-        if (ruta.equals("/foto")) {
-            if (logueado || SesionPorPestanaFilter.hayUsuarioEnAlgunaPestana(request)) {
-                chain.doFilter(req, res);
-            } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND);
-            }
+        if (IMAGENES.contains(ruta)) {
+            imagen(request, response, chain, logueado);
             return;
         }
-
         if (!logueado) {
-            // Pestaña nueva (sin identificador): login limpio. Pestaña que sí tenía sesión: "tu sesión terminó"
             boolean pestanaNueva = SesionPorPestanaFilter.idPestana(request) == null;
             response.sendRedirect(request.getContextPath() + "/jsp/login.jsp" + (pestanaNueva ? "" : "?error=sesion"));
             return;
         }
-
-        // ¿La cuenta sigue activa? (bloqueada, desactivada o con otro rol -> se cierra la sesión de la pestaña)
         if (!SesionVigente.revisar(request, response)) {
             return;
         }
-
-        // Página privada: no guardar en caché
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         response.setHeader("Pragma", "no-cache");
         response.setDateHeader("Expires", 0);
         chain.doFilter(req, res);
+    }
+
+    /** Si ya inició sesión y vuelve al login, se le manda al menú. */
+    private static void paginaPublica(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+                                      String ruta, boolean logueado) throws IOException, ServletException {
+        if (logueado && ruta.equals("/jsp/login.jsp")) {
+            response.sendRedirect(request.getContextPath() + "/panel");
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+
+    /** Basta con que alguna pestaña de este navegador tenga sesión. */
+    private static void imagen(HttpServletRequest request, HttpServletResponse response, FilterChain chain, boolean logueado)
+            throws IOException, ServletException {
+        if (logueado || SesionPorPestanaFilter.hayUsuarioEnAlgunaPestana(request)) {
+            chain.doFilter(request, response);
+        } else {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        }
     }
 }

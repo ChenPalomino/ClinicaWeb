@@ -95,14 +95,9 @@ public class CierreCajaService {
     /** @return null si se cerró; si no, el motivo */
     public String cerrar(Usuario cajero, BigDecimal efectivoContado, String observacion) {
         String obs = observacion == null ? "" : observacion.trim();
-        if (efectivoContado == null || efectivoContado.signum() < 0 || efectivoContado.stripTrailingZeros().scale() > 2) {
-            return "Escribe cuánto efectivo contaste en la caja (puede ser 0.00).";
-        }
-        if (efectivoContado.compareTo(MAXIMO_CONTADO) > 0) {
-            return "Revisa el efectivo contado: no puede pasar de S/ 100,000.00.";
-        }
-        if (obs.length() > 250) {
-            return "La observación no puede pasar de 250 caracteres.";
+        String error = validarCierre(efectivoContado, obs);
+        if (error != null) {
+            return error;
         }
         ResumenCajaDTO r = resumenDeHoy(cajero);
         if (r.isCerrada()) {
@@ -125,6 +120,16 @@ public class CierreCajaService {
                 r.getFecha() + " · " + r.getCantidadPagos() + " cobros · S/ " + r.getTotalGeneral()
                         + (diferencia.signum() == 0 ? " · sin diferencias" : " · diferencia S/ " + diferencia));
         return null;
+    }
+
+    private static String validarCierre(BigDecimal efectivoContado, String obs) {
+        if (efectivoContado == null || efectivoContado.signum() < 0 || efectivoContado.stripTrailingZeros().scale() > 2) {
+            return "Escribe cuánto efectivo contaste en la caja (puede ser 0.00).";
+        }
+        if (efectivoContado.compareTo(MAXIMO_CONTADO) > 0) {
+            return "Revisa el efectivo contado: no puede pasar de S/ 100,000.00.";
+        }
+        return obs.length() > 250 ? "La observación no puede pasar de 250 caracteres." : null;
     }
 
     /** Últimos cierres: el administrador ve los de todos; el cajero, los suyos. */

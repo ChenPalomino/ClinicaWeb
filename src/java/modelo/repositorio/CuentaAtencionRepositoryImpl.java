@@ -34,21 +34,24 @@ public class CuentaAtencionRepositoryImpl implements CuentaAtencionRepository {
         + "       p.numero_historia, cb.nombre AS cobertura, cb.tipo AS tipo_cobertura, cb.porcentaje_cobertura, "
         + "       (SELECT COUNT(*) FROM tt_detalle_cuenta dc WHERE dc.id_cuenta_atencion = ca.id_cuenta_atencion) AS items, "
         + "       cp.id_comprobante, cp.serie, cp.numero "
-        + "FROM tt_cuenta_atencion ca "
+        + "FROM vw_cuenta_atencion ca "
         + "JOIN tt_paciente p ON p.id_paciente = ca.id_paciente "
         + "JOIN tt_datos_personales d ON d.id_datos_personales = p.id_datos_personales "
         + "JOIN tm_cobertura cb ON cb.id_cobertura = ca.id_cobertura "
         + "LEFT JOIN tt_usuario ua ON ua.id_usuario = ca.id_usuario_anula "
-        + "LEFT JOIN LATERAL (SELECT id_comprobante, serie, numero FROM tt_comprobante "
-        + "                   WHERE id_cuenta_atencion = ca.id_cuenta_atencion "
-        + "                   ORDER BY id_comprobante DESC LIMIT 1) cp ON TRUE ";
+        + "LEFT JOIN LATERAL (SELECT c2.id_comprobante, s.serie, c2.numero FROM tt_comprobante c2 "
+        + "                   JOIN tm_serie_comprobante s ON s.id_serie_comprobante = c2.id_serie_comprobante "
+        + "                   JOIN tt_pago p2 ON p2.id_pago = c2.id_pago "
+        + "                   WHERE p2.id_cuenta_atencion = ca.id_cuenta_atencion "
+        + "                   ORDER BY c2.id_comprobante DESC LIMIT 1) cp ON TRUE ";
 
-    private static final String SELECT_PAGO =
-          "SELECT pg.id_pago, pg.id_cuenta_atencion, pg.id_metodo_pago, mp.codigo, mp.nombre AS metodo, pg.monto, "
+    static final String SELECT_PAGO =
+          "SELECT pg.id_pago, pg.id_cuenta_atencion, pg.id_metodo_pago, pg.codigo_metodo AS codigo, pg.metodo, pg.monto, "
         + "       pg.monto_recibido, pg.vuelto, pg.referencia, pg.estado_pago, pg.motivo_rechazo, "
+        + "       pg.tipo_tarjeta, pg.ultimos_digitos, pg.codigo_autorizacion, pg.id_billetera, pg.billetera, "
+        + "       pg.numero_operacion, pg.celular, pg.nombre_pagador, "
         + "       pg.id_usuario_cajero, u.nombre_usuario AS cajero, pg.fecha_creacion "
-        + "FROM tt_pago pg "
-        + "JOIN tm_metodo_pago mp ON mp.id_metodo_pago = pg.id_metodo_pago "
+        + "FROM vw_pago pg "
         + "JOIN tt_usuario u ON u.id_usuario = pg.id_usuario_cajero ";
 
     private Connection conexion() throws SQLException {
@@ -107,6 +110,14 @@ public class CuentaAtencionRepositoryImpl implements CuentaAtencionRepository {
         p.setIdUsuarioCajero(rs.getInt("id_usuario_cajero"));
         p.setNombreCajero(rs.getString("cajero"));
         p.setFechaCreacion(rs.getTimestamp("fecha_creacion"));
+        p.setTipoTarjeta(rs.getString("tipo_tarjeta"));
+        p.setUltimosDigitos(rs.getString("ultimos_digitos"));
+        p.setCodigoAutorizacion(rs.getString("codigo_autorizacion"));
+        p.setIdBilletera(RepositorioUtil.enteroONulo(rs, "id_billetera"));
+        p.setNombreBilletera(rs.getString("billetera"));
+        p.setNumeroOperacion(rs.getString("numero_operacion"));
+        p.setCelular(rs.getString("celular"));
+        p.setNombrePagador(rs.getString("nombre_pagador"));
         return p;
     }
 
@@ -129,11 +140,10 @@ public class CuentaAtencionRepositoryImpl implements CuentaAtencionRepository {
 
     /** Detalle de una cuenta (también lo usa la representación impresa del comprobante). */
     static List<DetalleCuentaDTO> detalles(Connection cn, int idCuenta) throws SQLException {
-        String sql = "SELECT dc.id_detalle_cuenta, dc.id_producto_servicio, ps.codigo, dc.descripcion, dc.tipo, dc.cantidad, "
+        String sql = "SELECT dc.id_detalle_cuenta, dc.id_producto_servicio, dc.codigo, dc.descripcion, dc.tipo, dc.cantidad, "
                    + "       dc.precio_unitario, dc.afecto_igv, dc.porcentaje_cubierto, dc.monto_aseguradora, "
                    + "       dc.monto_descuento, dc.importe "
-                   + "FROM tt_detalle_cuenta dc JOIN tt_producto_servicio ps ON ps.id_producto_servicio = dc.id_producto_servicio "
-                   + "WHERE dc.id_cuenta_atencion = ? ORDER BY dc.id_detalle_cuenta";
+                   + "FROM vw_detalle_cuenta dc WHERE dc.id_cuenta_atencion = ? ORDER BY dc.id_detalle_cuenta";
         List<DetalleCuentaDTO> lista = new ArrayList<>();
         try (PreparedStatement stmt = cn.prepareStatement(sql)) {
             stmt.setInt(1, idCuenta);
@@ -262,37 +272,34 @@ public class CuentaAtencionRepositoryImpl implements CuentaAtencionRepository {
                     stmt.executeUpdate();
                 }
                 try (PreparedStatement stmt = cn.prepareStatement(
-                        "INSERT INTO tt_detalle_cuenta (id_cuenta_atencion, id_producto_servicio, descripcion, tipo, cantidad, "
-                      + "       precio_unitario, afecto_igv, porcentaje_cubierto, monto_aseguradora, monto_descuento, importe, "
-                      + "       usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        "INSERT INTO tt_detalle_cuenta (id_cuenta_atencion, id_producto_servicio, descripcion, cantidad, "
+                      + "       precio_unitario, afecto_igv, porcentaje_cubierto, monto_aseguradora, monto_descuento, "
+                      + "       usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                     for (DetalleCuentaDTO d : detalles) {
                         stmt.setInt(1, idCuenta);
                         stmt.setInt(2, d.getIdProductoServicio());
                         stmt.setString(3, d.getDescripcion());
-                        stmt.setString(4, d.getTipo());
-                        stmt.setInt(5, d.getCantidad());
-                        stmt.setBigDecimal(6, d.getPrecioUnitario());
-                        stmt.setBoolean(7, d.isAfectoIgv());
-                        stmt.setBigDecimal(8, d.getPorcentajeCubierto());
-                        stmt.setBigDecimal(9, d.getMontoAseguradora());
-                        stmt.setBigDecimal(10, d.getMontoDescuento());
-                        stmt.setBigDecimal(11, d.getImporte());
-                        stmt.setString(12, usuario);
+                        stmt.setInt(4, d.getCantidad());
+                        stmt.setBigDecimal(5, d.getPrecioUnitario());
+                        stmt.setBoolean(6, d.isAfectoIgv());
+                        stmt.setBigDecimal(7, d.getPorcentajeCubierto());
+                        stmt.setBigDecimal(8, d.getMontoAseguradora());
+                        stmt.setBigDecimal(9, d.getMontoDescuento());
+                        stmt.setString(10, usuario);
                         stmt.addBatch();
                     }
                     stmt.executeBatch();
                 }
                 // 3. Totales de la cabecera
                 try (PreparedStatement stmt = cn.prepareStatement(
-                        "UPDATE tt_cuenta_atencion SET op_gravada = ?, op_exonerada = ?, igv = ?, total = ?, "
+                        "UPDATE tt_cuenta_atencion SET op_gravada = ?, op_exonerada = ?, igv = ?, "
                       + "       monto_aseguradora = ?, monto_descuento = ? WHERE id_cuenta_atencion = ?")) {
                     stmt.setBigDecimal(1, t.getOpGravada());
                     stmt.setBigDecimal(2, t.getOpExonerada());
                     stmt.setBigDecimal(3, t.getIgv());
-                    stmt.setBigDecimal(4, t.getTotal());
-                    stmt.setBigDecimal(5, t.getMontoAseguradora());
-                    stmt.setBigDecimal(6, t.getMontoDescuento());
-                    stmt.setInt(7, idCuenta);
+                    stmt.setBigDecimal(4, t.getMontoAseguradora());
+                    stmt.setBigDecimal(5, t.getMontoDescuento());
+                    stmt.setInt(6, idCuenta);
                     stmt.executeUpdate();
                 }
                 cn.commit();
@@ -319,34 +326,68 @@ public class CuentaAtencionRepositoryImpl implements CuentaAtencionRepository {
         }
     }
 
-    @Override
-    public List<ProductoServicioDTO> itemsVendibles() {
-        String sql = "SELECT ps.id_producto_servicio, ps.codigo, ps.nombre, ps.tipo, ps.precio, ps.afecto_igv, ps.stock, "
-                   + "       c.nombre AS categoria, um.abreviatura AS unidad "
-                   + "FROM tt_producto_servicio ps "
-                   + "JOIN tm_categoria c ON c.id_categoria = ps.id_categoria "
-                   + "JOIN tm_unidad_medida um ON um.id_unidad_medida = ps.id_unidad_medida "
-                   + "WHERE ps.estado = 'Activo' ORDER BY ps.tipo DESC, ps.nombre";
+    private static final String SELECT_ITEM_VENDIBLE =
+          "SELECT ps.id_producto_servicio, ps.codigo, ps.nombre, ps.tipo, ps.precio, ps.afecto_igv, ps.stock, "
+        + "       c.nombre AS categoria, um.abreviatura AS unidad "
+        + "FROM vw_producto_servicio ps "
+        + "JOIN tm_categoria c ON c.id_categoria = ps.id_categoria "
+        + "JOIN tm_unidad_medida um ON um.id_unidad_medida = ps.id_unidad_medida "
+        + "WHERE ps.estado = 'Activo' ";
+
+    private static ProductoServicioDTO mapearItem(ResultSet rs) throws SQLException {
+        ProductoServicioDTO p = new ProductoServicioDTO();
+        p.setIdProductoServicio(rs.getInt("id_producto_servicio"));
+        p.setCodigo(rs.getString("codigo"));
+        p.setNombre(rs.getString("nombre"));
+        p.setTipo(rs.getString("tipo"));
+        p.setPrecio(rs.getBigDecimal("precio"));
+        p.setAfectoIgv(rs.getBoolean("afecto_igv"));
+        p.setStock(RepositorioUtil.enteroONulo(rs, "stock"));
+        p.setNombreCategoria(rs.getString("categoria"));
+        p.setUnidad(rs.getString("unidad"));
+        p.setEstado("Activo");
+        return p;
+    }
+
+    private List<ProductoServicioDTO> consultarItems(String sql, Object... parametros) {
         List<ProductoServicioDTO> lista = new ArrayList<>();
-        try (PreparedStatement stmt = conexion().prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                ProductoServicioDTO p = new ProductoServicioDTO();
-                p.setIdProductoServicio(rs.getInt("id_producto_servicio"));
-                p.setCodigo(rs.getString("codigo"));
-                p.setNombre(rs.getString("nombre"));
-                p.setTipo(rs.getString("tipo"));
-                p.setPrecio(rs.getBigDecimal("precio"));
-                p.setAfectoIgv(rs.getBoolean("afecto_igv"));
-                p.setStock(RepositorioUtil.enteroONulo(rs, "stock"));
-                p.setNombreCategoria(rs.getString("categoria"));
-                p.setUnidad(rs.getString("unidad"));
-                p.setEstado("Activo");
-                lista.add(p);
+        try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
+            RepositorioUtil.asignar(stmt, java.util.Arrays.asList(parametros));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(mapearItem(rs));
+                }
             }
             return lista;
         } catch (SQLException e) {
             throw new RepositorioException("Error al leer el tarifario", e);
         }
+    }
+
+    @Override
+    public List<ProductoServicioDTO> itemsVendibles() {
+        return consultarItems(SELECT_ITEM_VENDIBLE + "ORDER BY ps.tipo DESC, ps.nombre");
+    }
+
+    @Override
+    public Optional<ProductoServicioDTO> itemVendible(int idProductoServicio) {
+        return consultarItems(SELECT_ITEM_VENDIBLE + "AND ps.id_producto_servicio = ?", idProductoServicio).stream().findFirst();
+    }
+
+    @Override
+    public List<ProductoServicioDTO> buscarItems(String texto, int limite) {
+        String limpio = texto == null ? "" : texto.trim().replace("%", "").replace("_", "");
+        String patron = "%" + limpio + "%";
+        return consultarItems(SELECT_ITEM_VENDIBLE + "AND (ps.nombre ILIKE ? OR ps.codigo ILIKE ? OR c.nombre ILIKE ?) "
+                + "ORDER BY (ps.codigo ILIKE ?) DESC, (ps.nombre ILIKE ?) DESC, ps.tipo DESC, ps.nombre LIMIT ?",
+                patron, patron, patron, limpio, limpio + "%", limite);
+    }
+
+    @Override
+    public List<ProductoServicioDTO> itemsFrecuentes(int limite) {
+        return consultarItems(SELECT_ITEM_VENDIBLE + "ORDER BY (SELECT COUNT(*) FROM tt_detalle_cuenta dc "
+                + "  WHERE dc.id_producto_servicio = ps.id_producto_servicio "
+                + "  AND dc.fecha_creacion >= CURRENT_DATE - 60) DESC, (c.nombre = 'Consulta médica') DESC, ps.nombre LIMIT ?", limite);
     }
 
     @Override

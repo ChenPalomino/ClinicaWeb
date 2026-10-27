@@ -16,6 +16,8 @@ public interface PagoRepository {
     /** Métodos de pago activos: id, nombre y código (en "extra"). */
     List<OpcionDTO> metodosActivos();
 
+    default List<OpcionDTO> billeterasActivas() { return List.of(); }
+
     /** RF-14: guarda un intento rechazado (la cuenta sigue pendiente y se puede reintentar). */
     int registrarRechazo(PagoDTO pago);
 

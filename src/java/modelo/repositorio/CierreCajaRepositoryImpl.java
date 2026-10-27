@@ -19,7 +19,7 @@ public class CierreCajaRepositoryImpl implements CierreCajaRepository {
     private static final String SELECT_CIERRE =
           "SELECT cc.id_usuario_cajero, u.nombre_usuario, cc.fecha_caja, cc.cantidad_pagos, cc.total_efectivo, "
         + "       cc.total_tarjeta, cc.total_billetera, cc.efectivo_contado, cc.diferencia, cc.observacion, cc.fecha_creacion "
-        + "FROM tt_cierre_caja cc JOIN tt_usuario u ON u.id_usuario = cc.id_usuario_cajero ";
+        + "FROM vw_cierre_caja cc JOIN tt_usuario u ON u.id_usuario = cc.id_usuario_cajero ";
 
     private Connection conexion() throws SQLException {
         return ConexionBDSingleton.getInstancia().getConexion();
@@ -59,8 +59,8 @@ public class CierreCajaRepositoryImpl implements CierreCajaRepository {
     @Override
     public void registrar(ResumenCajaDTO c, String usuario) {
         String sql = "INSERT INTO tt_cierre_caja (id_usuario_cajero, fecha_caja, cantidad_pagos, total_efectivo, total_tarjeta, "
-                   + "       total_billetera, total_general, efectivo_contado, diferencia, observacion, usuario_registro) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id_usuario_cajero, fecha_caja) DO NOTHING";
+                   + "       total_billetera, efectivo_contado, observacion, usuario_registro) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id_usuario_cajero, fecha_caja) DO NOTHING";
         try (PreparedStatement stmt = conexion().prepareStatement(sql)) {
             stmt.setInt(1, c.getIdUsuarioCajero());
             stmt.setDate(2, Date.valueOf(c.getFecha()));
@@ -68,11 +68,9 @@ public class CierreCajaRepositoryImpl implements CierreCajaRepository {
             stmt.setBigDecimal(4, c.getTotalEfectivo());
             stmt.setBigDecimal(5, c.getTotalTarjeta());
             stmt.setBigDecimal(6, c.getTotalBilletera());
-            stmt.setBigDecimal(7, c.getTotalGeneral());
-            stmt.setBigDecimal(8, c.getEfectivoContado());
-            stmt.setBigDecimal(9, c.getDiferencia());
-            RepositorioUtil.textoONulo(stmt, 10, c.getObservacion());
-            stmt.setString(11, usuario);
+            stmt.setBigDecimal(7, c.getEfectivoContado());
+            RepositorioUtil.textoONulo(stmt, 8, c.getObservacion());
+            stmt.setString(9, usuario);
             if (stmt.executeUpdate() == 0) {
                 throw new OperacionRechazadaException("Tu caja de hoy ya estaba cerrada.");
             }

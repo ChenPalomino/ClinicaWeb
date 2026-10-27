@@ -21,6 +21,16 @@
     RangoFechasDTO rangoFechas = filtro == null ? RangoFechasDTO.SIN_RANGO : filtro.getRango();
     base += rangoFechas.parametrosUrl();   // conserva las fechas elegidas al paginar o volver
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
+    String urlLista = ctx + "/admin/usuarios";
+    String queLista = "Los usuarios";
+    String hoyIso = java.time.LocalDate.now().toString();
+    String[][] atajos = {
+        {"Registrados hoy", "desde=" + hoyIso + "&hasta=" + hoyIso, "fas fa-calendar-day"},
+        {"Últimos 7 días", "desde=" + java.time.LocalDate.now().minusDays(6) + "&hasta=" + hoyIso, "fas fa-calendar-week"},
+        {"Todo el personal", "rol=personal&estado=ACTIVO", "fas fa-user-tie"},
+        {"Bloqueados", "estado=BLOQUEADO", "fas fa-lock"},
+        {"Desactivados", "estado=INACTIVO", "fas fa-user-slash"}
+    };
 %>
 
 <div class="card">
@@ -67,7 +77,7 @@
             <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
             <div class="col-md-12 col-lg mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Filtrar</button>
-                <% if (filtro != null && filtro.hayFiltros()) { %>
+                <% if (filtro != null) { %>
                 <a href="<%= ctx %>/admin/usuarios" class="btn btn-link">Limpiar</a>
                 <% } %>
             </div>
@@ -77,12 +87,14 @@
 
     <%-- ---------- Tabla ---------- --%>
     <div class="card-body p-0">
-    <% if (errorDatos || pagina == null) { %>
+    <% if (errorDatos) { %>
         <div class="estado-vacio">
             <i class="fas fa-plug text-warning"></i>
             <p class="mb-1"><strong>No pudimos cargar los usuarios.</strong></p>
             <p class="text-muted">Revisa la conexión con la base de datos y recarga la página.</p>
         </div>
+    <% } else if (pagina == null) { %>
+        <%@ include file="/WEB-INF/vistas/comun/inicio-filtros.jspf" %>
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-user-slash text-muted"></i>
@@ -179,29 +191,7 @@
     <% } %>
     </div>
 
-    <%-- ---------- Paginación ---------- --%>
-    <% if (pagina != null && pagina.getTotal() > 0) { %>
-    <div class="card-footer d-flex flex-wrap align-items-center">
-        <small class="text-muted mr-auto">Mostrando <%= pagina.getDesde() %>–<%= pagina.getHasta() %> de <%= pagina.getTotal() %></small>
-        <% if (pagina.getTotalPaginas() > 1) { %>
-        <nav aria-label="Páginas">
-            <ul class="pagination pagination-sm m-0">
-                <li class="page-item <%= pagina.getPagina() <= 1 ? "disabled" : "" %>">
-                    <a class="page-link" href="<%= ctx %>/admin/usuarios?<%= base %>&pagina=<%= pagina.getPagina() - 1 %>" aria-label="Anterior">&laquo;</a>
-                </li>
-                <% for (int i = 1; i <= pagina.getTotalPaginas(); i++) { %>
-                <li class="page-item <%= i == pagina.getPagina() ? "active" : "" %>">
-                    <a class="page-link" href="<%= ctx %>/admin/usuarios?<%= base %>&pagina=<%= i %>"><%= i %></a>
-                </li>
-                <% } %>
-                <li class="page-item <%= pagina.getPagina() >= pagina.getTotalPaginas() ? "disabled" : "" %>">
-                    <a class="page-link" href="<%= ctx %>/admin/usuarios?<%= base %>&pagina=<%= pagina.getPagina() + 1 %>" aria-label="Siguiente">&raquo;</a>
-                </li>
-            </ul>
-        </nav>
-        <% } %>
-    </div>
-    <% } %>
+    <%@ include file="/WEB-INF/vistas/comun/paginacion.jspf" %>
 </div>
 
 <%-- Datos para la ventana de confirmación (pie.jspf) --%>

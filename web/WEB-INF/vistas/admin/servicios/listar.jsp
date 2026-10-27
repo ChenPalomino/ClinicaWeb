@@ -21,12 +21,21 @@
     RangoFechasDTO rangoFechas = filtro == null ? RangoFechasDTO.SIN_RANGO : filtro.getRango();
     base += rangoFechas.parametrosUrl();   // conserva las fechas elegidas al paginar o volver
     String regreso = base + (pagina != null ? "&pagina=" + pagina.getPagina() : "");
+    String queLista = "Los servicios y productos";
+    String[][] atajos = {
+        {"Solo servicios", "tipo=SERVICIO&estado=ACTIVO", "fas fa-stethoscope"},
+        {"Solo productos", "tipo=PRODUCTO&estado=ACTIVO", "fas fa-pills"},
+        {"Productos por reponer", "estado=REPONER", "fas fa-box-open"},
+        {"Registrados este mes", "desde=" + java.time.LocalDate.now().withDayOfMonth(1) + "&hasta=" + java.time.LocalDate.now(), "far fa-calendar-alt"},
+        {"Desactivados", "estado=INACTIVO", "fas fa-ban"}
+    };
 %>
 
 <% if (stockBajo != null && stockBajo > 0) { %>
 <div class="alert alert-warning d-flex align-items-center" role="status">
     <i class="fas fa-box-open fa-lg mr-3"></i>
-    <div><strong><%= stockBajo %> producto<%= stockBajo == 1 ? "" : "s" %></strong> en o por debajo del stock mínimo. Están marcados en la tabla con <span class="badge badge-warning">Reponer</span>.</div>
+    <div class="mr-auto"><strong><%= stockBajo %> producto<%= stockBajo == 1 ? "" : "s" %></strong> en o por debajo del stock mínimo.</div>
+    <% if (!"REPONER".equals(estadoSel)) { %><a href="<%= urlLista %>?estado=REPONER" class="btn btn-sm btn-outline-dark ml-2">Ver cuáles</a><% } %>
 </div>
 <% } %>
 
@@ -43,15 +52,8 @@
     </div>
 
     <div class="card-body border-bottom pb-2">
-        <%-- Pestañas rápidas por tipo (reconocer antes que recordar) --%>
-        <ul class="nav nav-pills mb-3">
-            <li class="nav-item"><a class="nav-link <%= tipoSel.isEmpty() ? "active" : "" %>" href="<%= urlLista %>">Todo</a></li>
-            <li class="nav-item"><a class="nav-link <%= "SERVICIO".equals(tipoSel) ? "active" : "" %>" href="<%= urlLista %>?tipo=SERVICIO"><i class="fas fa-stethoscope mr-1"></i>Servicios</a></li>
-            <li class="nav-item"><a class="nav-link <%= "PRODUCTO".equals(tipoSel) ? "active" : "" %>" href="<%= urlLista %>?tipo=PRODUCTO"><i class="fas fa-pills mr-1"></i>Productos</a></li>
-        </ul>
         <form method="GET" action="<%= urlLista %>" class="form-row align-items-end" role="search">
-            <input type="hidden" name="tipo" value="<%= tipoSel %>">
-            <div class="col-md-12 col-lg-4 mb-2">
+            <div class="col-md-12 col-lg-3 mb-2">
                 <label for="q" class="small text-muted mb-1">Buscar</label>
                 <div class="input-group">
                     <div class="input-group-prepend"><span class="input-group-text"><i class="fas fa-search"></i></span></div>
@@ -59,12 +61,19 @@
                 </div>
             </div>
             <div class="col-6 col-md-3 col-lg-2 mb-2">
+                <label for="tipoFiltro" class="small text-muted mb-1">Tipo</label>
+                <select id="tipoFiltro" name="tipo" class="form-control">
+                    <option value="">Servicios y productos</option>
+                    <option value="SERVICIO" <%= "SERVICIO".equals(tipoSel) ? "selected" : "" %>>Solo servicios</option>
+                    <option value="PRODUCTO" <%= "PRODUCTO".equals(tipoSel) ? "selected" : "" %>>Solo productos</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2 mb-2">
                 <label for="categoria" class="small text-muted mb-1">Categoría</label>
-                <select id="categoria" name="categoria" class="form-control">
+                <select id="categoria" name="categoria" class="form-control" data-filtrar-por="tipoFiltro">
                     <option value="">Todas</option>
-                    <% if (categorias != null) for (OpcionDTO c : categorias) {
-                           if (!tipoSel.isEmpty() && !tipoSel.equals(c.getExtra())) continue; %>
-                    <option value="<%= c.getId() %>" <%= categoriaSel != null && categoriaSel == c.getId() ? "selected" : "" %>><%= EscapeHtml.texto(c.getNombre()) %></option>
+                    <% if (categorias != null) for (OpcionDTO c : categorias) { %>
+                    <option value="<%= c.getId() %>" data-extra="<%= EscapeHtml.texto(c.getExtra()) %>" <%= categoriaSel != null && categoriaSel == c.getId() ? "selected" : "" %>><%= EscapeHtml.texto(c.getNombre()) %></option>
                     <% } %>
                 </select>
             </div>
@@ -74,29 +83,33 @@
                     <option value="">Todos</option>
                     <option value="ACTIVO" <%= "ACTIVO".equals(estadoSel) ? "selected" : "" %>>Activos</option>
                     <option value="INACTIVO" <%= "INACTIVO".equals(estadoSel) ? "selected" : "" %>>Desactivados</option>
+                    <option value="REPONER" <%= "REPONER".equals(estadoSel) ? "selected" : "" %>>Por reponer</option>
                 </select>
             </div>
             <%@ include file="/WEB-INF/vistas/comun/rango-fechas.jspf" %>
-            <div class="col-md-12 col-lg mb-2">
+            <div class="col-md-12 col-lg-auto mb-2">
                 <button type="submit" class="btn btn-secondary"><i class="fas fa-filter mr-1"></i> Buscar</button>
+                <% if (filtro != null) { %><a href="<%= urlLista %>" class="btn btn-link">Limpiar</a><% } %>
             </div>
         </form>
         <%@ include file="/WEB-INF/vistas/comun/aviso-rango.jspf" %>
     </div>
 
     <div class="card-body p-0">
-    <% if (errorDatos || pagina == null) { %>
+    <% if (errorDatos) { %>
         <div class="estado-vacio">
             <i class="fas fa-plug text-warning"></i>
             <p class="mb-1"><strong>No pudimos cargar el tarifario.</strong></p>
             <p class="text-muted">Revisa la conexión con la base de datos y recarga la página.</p>
         </div>
+    <% } else if (pagina == null) { %>
+        <%@ include file="/WEB-INF/vistas/comun/inicio-filtros.jspf" %>
     <% } else if (pagina.getElementos().isEmpty()) { %>
         <div class="estado-vacio">
             <i class="fas fa-notes-medical text-muted"></i>
             <% if (rangoFechas.isPorDefecto() && !filtro.hayFiltros()) { %>
                 <p class="mb-1"><strong>No hay registros en los últimos <%= RangoFechasDTO.DIAS_POR_DEFECTO %> días.</strong></p>
-                <p class="text-muted mb-0">Busca por nombre o DNI, o elige otras fechas arriba.</p>
+                <p class="text-muted mb-0">Busca por código o nombre, o elige otras fechas arriba.</p>
             <% } else if (filtro.hayFiltros()) { %>
                 <p class="mb-1"><strong>Nada coincide con la búsqueda.</strong></p><a href="<%= urlLista %>">Quitar filtros</a>
             <% } else { %>

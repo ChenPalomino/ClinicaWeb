@@ -1,0 +1,7 @@
+clase,metodo,linea,cc
+CajaServletBase.CajaServletBase,doPost,128,150
+CitasServletBase.CitasServletBase,doPost,276,142
+CitasServletBase.CitasServletBase,doGet,41,82
+CajaServletBase.CajaServletBase,doGet,42,20
+CajaServletBase.CajaServletBase,conectar,26,4
+CitasServletBase.CitasServletBase,conectar,25,4

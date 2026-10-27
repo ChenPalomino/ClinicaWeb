@@ -1,0 +1,17 @@
+<%@ page pageEncoding="UTF-8" %>
+<% { modelo.dto.PrecioConsultaDTO precioCita = c.getPrecioConsulta(); %>
+<div class="precio-cita">
+<% if (c.isCuentaPagada()) { %>
+    <span class="precio-tag"><i class="fas fa-check-circle" aria-hidden="true"></i>Pagado S/ <%= modelo.dto.PrecioConsultaDTO.soles(c.getTotalCuenta()) %></span>
+<% } else if (c.isCancelada() || c.isNoAsistio()) { %>
+<% } else if (c.isPagoEnRevision()) { %>
+    <span class="badge badge-info"><i class="fas fa-hourglass-half mr-1" aria-hidden="true"></i>Pago informado: caja lo está revisando</span>
+<% } else if (precioCita.isDefinido()) { %>
+    <span class="precio-tag"><i class="fas fa-tag" aria-hidden="true"></i>S/ <%= modelo.dto.PrecioConsultaDTO.soles(c.isTieneCuenta() && c.getTotalCuenta().signum() > 0 ? c.getTotalCuenta() : precioCita.getAPagar()) %></span>
+    <small class="text-muted"><%= precioCita.isConCobertura() ? EscapeHtml.texto(precioCita.getDetalleCobertura()) + " · " : "" %>págalo en línea o en caja el día de la consulta</small>
+    <% if (c.isPagoRechazado()) { %><div class="small text-warning"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>Tu aviso de pago no se confirmó: <%= EscapeHtml.texto(c.getMotivoReportePago()) %></div><% } %>
+<% } else { %>
+    <small class="text-muted"><i class="fas fa-tag mr-1" aria-hidden="true"></i>El precio te lo indicarán en caja</small>
+<% } %>
+</div>
+<% } %>

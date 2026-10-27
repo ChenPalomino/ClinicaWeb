@@ -49,10 +49,13 @@ public class ProveedorController extends HttpServlet {
                 mostrarFormulario(request, response, p.get(), Map.of());
                 return;
             }
-            FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
-                    null, null, ControladorUtil.entero(request.getParameter("pagina"), 1)).conRango(ControladorUtil.rango(request));
-            request.setAttribute("filtro", filtro);
-            request.setAttribute("pagina", servicio.listar(filtro));
+            if (ControladorUtil.busquedaSolicitada(request)) {
+                FiltroBusquedaDTO filtro = new FiltroBusquedaDTO(request.getParameter("q"), request.getParameter("estado"),
+                        null, null, ControladorUtil.entero(request.getParameter("pagina"), 1))
+                        .conRango(ControladorUtil.rango(request, "estado"));
+                request.setAttribute("filtro", filtro);
+                request.setAttribute("pagina", servicio.listar(filtro));
+            }
         } catch (RuntimeException e) {
             System.err.println("ProveedorController: " + e.getMessage());
             request.setAttribute("errorDatos", true);
@@ -83,7 +86,8 @@ public class ProveedorController extends HttpServlet {
                     }
                     MensajeFlash.exito(session, (nuevo ? "Proveedor «" : "Cambios de «") + p.getNombreMostrar()
                             + (nuevo ? "» registrado correctamente." : "» guardados."));
-                    response.sendRedirect(request.getContextPath() + RUTA);
+                    response.sendRedirect(request.getContextPath() + RUTA + "?q=" + java.net.URLEncoder.encode(
+                            p.getRuc() == null ? "" : p.getRuc(), java.nio.charset.StandardCharsets.UTF_8));
                     return;
                 }
                 case "desactivar":
@@ -107,7 +111,7 @@ public class ProveedorController extends HttpServlet {
                                    Map<String, String> errores) throws ServletException, IOException {
         request.setAttribute("proveedorForm", p);
         request.setAttribute("errores", errores);
-        request.setAttribute("rubros", ProveedorService.RUBROS);
+        request.setAttribute("rubros", new ProveedorService().rubros());
         request.setAttribute("tituloPagina", p.isNuevo() ? "Nuevo proveedor" : "Editar proveedor");
         request.getRequestDispatcher(VISTA_FORM).forward(request, response);
     }

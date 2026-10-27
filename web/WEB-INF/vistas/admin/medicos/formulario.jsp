@@ -30,6 +30,7 @@
                             <% } %>
                         </select>
                         <%= error(errores, "idEspecialidad") %>
+                        <small class="form-text text-muted">¿No está en la lista? <a href="<%= ctx %>/admin/especialidades?accion=nuevo">Créala aquí</a> (los cambios no guardados de este formulario se perderán).</small>
                     </div>
                     <div class="form-group col-md-6">
                         <label for="cmp">N.º de colegiatura (CMP) <span class="text-danger" aria-hidden="true">*</span></label>

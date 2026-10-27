@@ -78,17 +78,20 @@ public class ProductoServicioService {
             errores.put("general", "El registro ya no existe. Actualiza la lista e inténtalo de nuevo.");
             return errores;
         }
-        StringBuilder c = new StringBuilder(p.getCodigo() + " " + p.getNombre());
-        antes.ifPresent(a -> {
-            if (a.getPrecio() != null && a.getPrecio().compareTo(p.getPrecio()) != 0) {
-                c.append(" · precio: S/ ").append(a.getPrecio()).append(" → S/ ").append(p.getPrecio());   // cambios de tarifa
-            }
-            if (p.isProducto() && !java.util.Objects.equals(a.getStock(), p.getStock())) {
-                c.append(" · stock: ").append(a.getStock()).append(" → ").append(p.getStock());
-            }
-        });
-        EventoSubject.getInstancia().publicar(TipoEvento.ITEM_EDITADO, sesion, p.getIdProductoServicio(), c.toString());
+        String c = p.getCodigo() + " " + p.getNombre() + antes.map(a -> cambiosDe(a, p)).orElse("");
+        EventoSubject.getInstancia().publicar(TipoEvento.ITEM_EDITADO, sesion, p.getIdProductoServicio(), c);
         return errores;
+    }
+
+    private static String cambiosDe(ProductoServicioDTO a, ProductoServicioDTO p) {
+        StringBuilder c = new StringBuilder();
+        if (a.getPrecio() != null && a.getPrecio().compareTo(p.getPrecio()) != 0) {
+            c.append(" · precio: S/ ").append(a.getPrecio()).append(" → S/ ").append(p.getPrecio());
+        }
+        if (p.isProducto() && !java.util.Objects.equals(a.getStock(), p.getStock())) {
+            c.append(" · stock: ").append(a.getStock()).append(" → ").append(p.getStock());
+        }
+        return c.toString();
     }
 
     public String desactivar(int id, Usuario sesion) {
@@ -128,12 +131,28 @@ public class ProductoServicioService {
     /** Reglas (usa los catálogos para comprobar que cada lista tenga un valor válido). */
     Map<String, String> validar(ProductoServicioDTO p) {
         Map<String, String> errores = new LinkedHashMap<>();
+        validarTextos(p, errores);
+        validarCatalogos(p, errores);
+        validarPrecio(p, errores);
+        if (p.isProducto()) {
+            validarStock(p, errores);
+        }
+        return errores;
+    }
+
+    private static void validarTextos(ProductoServicioDTO p, Map<String, String> errores) {
         if (!CODIGO.matcher(p.getCodigo()).matches()) {
             errores.put("codigo", "Usa de 3 a 20 letras, números o guiones (ej. SRV-0007).");
         }
         if (p.getNombre().length() < 3 || p.getNombre().length() > 120) errores.put("nombre", "Escribe un nombre de 3 a 120 caracteres.");
         if (p.getDescripcion().length() > 250) errores.put("descripcion", "Máximo 250 caracteres.");
+        if (CODIGO_AUTOMATICO.matcher(p.getCodigo()).matches() && !p.getCodigo().startsWith(prefijo(p.getTipo()))) {
+            errores.put("codigo", "Los códigos " + p.getCodigo().substring(0, 4) + " son para "
+                    + (p.isProducto() ? "servicios" : "productos") + ". Usa " + prefijo(p.getTipo()) + "… o déjalo vacío.");
+        }
+    }
 
+    private void validarCatalogos(ProductoServicioDTO p, Map<String, String> errores) {
         Optional<OpcionDTO> categoria = buscar(catalogoRepository.listarCategorias(), p.getIdCategoria());
         if (categoria.isEmpty()) {
             errores.put("idCategoria", "Elige una categoría.");
@@ -148,11 +167,9 @@ public class ProductoServicioService {
             errores.put("idUnidadMedida", p.isProducto()
                     ? "Un producto se mide en unidades, cajas, frascos..." : "Un servicio se mide por servicio, sesión o examen.");
         }
-        // El prefijo del código automático debe coincidir con el tipo (SRV = servicio, PRD = producto)
-        if (CODIGO_AUTOMATICO.matcher(p.getCodigo()).matches() && !p.getCodigo().startsWith(prefijo(p.getTipo()))) {
-            errores.put("codigo", "Los códigos " + p.getCodigo().substring(0, 4) + " son para "
-                    + (p.isProducto() ? "servicios" : "productos") + ". Usa " + prefijo(p.getTipo()) + "… o déjalo vacío.");
-        }
+    }
+
+    private static void validarPrecio(ProductoServicioDTO p, Map<String, String> errores) {
         if (p.getPrecio() == null) {
             errores.put("precio", "Escribe el precio en soles (ej. 80.00).");
         } else if (p.getPrecio().signum() <= 0 || p.getPrecio().compareTo(PRECIO_MAXIMO) > 0) {
@@ -160,15 +177,15 @@ public class ProductoServicioService {
         } else if (p.getPrecio().scale() > 2) {
             errores.put("precio", "Usa como máximo 2 decimales.");
         }
-        if (p.isProducto()) {
-            if (p.getStock() == null || p.getStock() < 0 || p.getStock() > STOCK_MAXIMO) {
-                errores.put("stock", "Escribe el stock actual (número entero, 0 o más).");
-            }
-            if (p.getStockMinimo() != null && (p.getStockMinimo() < 0 || p.getStockMinimo() > STOCK_MAXIMO)) {
-                errores.put("stockMinimo", "El stock mínimo debe ser 0 o más.");
-            }
+    }
+
+    private static void validarStock(ProductoServicioDTO p, Map<String, String> errores) {
+        if (p.getStock() == null || p.getStock() < 0 || p.getStock() > STOCK_MAXIMO) {
+            errores.put("stock", "Escribe el stock actual (número entero, 0 o más).");
         }
-        return errores;
+        if (p.getStockMinimo() != null && (p.getStockMinimo() < 0 || p.getStockMinimo() > STOCK_MAXIMO)) {
+            errores.put("stockMinimo", "El stock mínimo debe ser 0 o más.");
+        }
     }
 
     /** SRV- para servicios, PRD- para productos. */

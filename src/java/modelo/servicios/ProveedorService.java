@@ -24,6 +24,8 @@ public class ProveedorService {
 
     private final ProveedorRepository proveedorRepository;
 
+    public List<String> rubros() { return proveedorRepository.rubros(); }
+
     public ProveedorService() {
         this(new ProveedorRepositoryImpl());
     }
@@ -91,6 +93,12 @@ public class ProveedorService {
     /** Reglas puras (sin BD). */
     Map<String, String> validar(ProveedorDTO p) {
         Map<String, String> errores = new LinkedHashMap<>();
+        validarEmpresa(p, errores);
+        validarContacto(p, errores);
+        return errores;
+    }
+
+    private static void validarEmpresa(ProveedorDTO p, Map<String, String> errores) {
         if (!Validaciones.ruc(p.getRuc())) {
             errores.put("ruc", "El RUC debe tener 11 números, empezar con 10 o 20 y tener un dígito verificador válido.");
         }
@@ -99,6 +107,10 @@ public class ProveedorService {
         }
         if (p.getNombreComercial().length() > 100) errores.put("nombreComercial", "Máximo 100 caracteres.");
         if (p.getRubro().isEmpty() || p.getRubro().length() > 60) errores.put("rubro", "Elige o escribe el rubro del proveedor.");
+        if (p.getDireccion().length() > 200) errores.put("direccion", "Máximo 200 caracteres.");
+    }
+
+    private static void validarContacto(ProveedorDTO p, Map<String, String> errores) {
         if (!p.getContactoNombre().isEmpty() && !Validaciones.nombre(p.getContactoNombre())) {
             errores.put("contactoNombre", "Escribe el nombre del contacto solo con letras.");
         }
@@ -106,7 +118,5 @@ public class ProveedorService {
             errores.put("telefono", "El teléfono debe tener de 7 a 9 números.");
         }
         if (!p.getCorreo().isEmpty() && !Validaciones.correo(p.getCorreo())) errores.put("correo", "Escribe un correo válido.");
-        if (p.getDireccion().length() > 200) errores.put("direccion", "Máximo 200 caracteres.");
-        return errores;
     }
 }

@@ -90,18 +90,25 @@ final class JsonLector {
             char c = texto.charAt(pos++);
             if (c == '"') return sb.toString();
             if (c != '\\') { sb.append(c); continue; }
-            char e = texto.charAt(pos++);
-            switch (e) {
-                case 'n': sb.append('\n'); break;
-                case 't': sb.append('\t'); break;
-                case 'r': sb.append('\r'); break;
-                case 'b': sb.append('\b'); break;
-                case 'f': sb.append('\f'); break;
-                case 'u': sb.append((char) Integer.parseInt(texto.substring(pos, pos + 4), 16)); pos += 4; break;
-                default: sb.append(e);
-            }
+            sb.append(escape(texto.charAt(pos++)));
         }
         throw new IllegalArgumentException("Texto sin cerrar");
+    }
+
+    private char escape(char e) {
+        switch (e) {
+            case 'n': return '\n';
+            case 't': return '\t';
+            case 'r': return '\r';
+            case 'b': return '\b';
+            case 'f': return '\f';
+            case 'u': {
+                char c = (char) Integer.parseInt(texto.substring(pos, pos + 4), 16);
+                pos += 4;
+                return c;
+            }
+            default: return e;
+        }
     }
 
     private Object leerNumero() {

@@ -43,6 +43,9 @@ public enum TipoEvento {
     PAGO_RECHAZADO("COBRANZA", "Pago rechazado"),
     CUENTA_ANULADA("COBRANZA", "Anuló una cuenta"),
     CAJA_CERRADA("COBRANZA", "Cerró su caja"),
+    PAGO_REPORTADO("COBRANZA", "El paciente informó un pago por billetera"),
+    PAGO_VERIFICADO("COBRANZA", "Verificó un pago del portal"),
+    PAGO_REPORTE_RECHAZADO("COBRANZA", "Rechazó un pago informado por el paciente"),
     // Citas médicas (PP-01, RF-21)
     CITA_RESERVADA("CITA", "Reservó una cita"),
     CITA_REPROGRAMADA("CITA", "Reprogramó una cita"),
@@ -54,6 +57,10 @@ public enum TipoEvento {
     MEDICO_EDITADO("MEDICO", "Editó los datos y el horario de un médico"),
     MEDICO_PAUSADO("MEDICO", "Pausó las citas de un médico"),
     MEDICO_REANUDADO("MEDICO", "Reanudó las citas de un médico"),
+    ESPECIALIDAD_CREADA("ESPECIALIDAD", "Creó una especialidad"),
+    ESPECIALIDAD_EDITADA("ESPECIALIDAD", "Editó una especialidad"),
+    ESPECIALIDAD_DESACTIVADA("ESPECIALIDAD", "Desactivó una especialidad"),
+    ESPECIALIDAD_REACTIVADA("ESPECIALIDAD", "Reactivó una especialidad"),
     // Configuración
     PARAMETROS_EDITADOS("CONFIGURACION", "Editó los datos de la clínica");
 

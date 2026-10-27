@@ -16,6 +16,31 @@ public interface MedicoRepository {
     /** Todas las cuentas de rol Médico, configuradas o no (pantalla del administrador). */
     List<MedicoDTO> listarTodos();
 
+    int LIMITE_BUSQUEDA = 100;
+
+    default List<MedicoDTO> buscar(String texto, Integer idEspecialidad, String estado) {
+        String t = texto == null ? "" : texto.trim().toLowerCase();
+        return listarTodos().stream()
+                .filter(m -> t.isEmpty() || (m.getNombreCompleto() + " " + m.getNombreUsuario() + " " + m.getCmp()).toLowerCase().contains(t))
+                .filter(m -> idEspecialidad == null || m.getIdEspecialidad() == idEspecialidad)
+                .filter(m -> estado == null || cumpleEstado(m, estado))
+                .limit(LIMITE_BUSQUEDA)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private static boolean cumpleEstado(MedicoDTO m, String estado) {
+        switch (estado) {
+            case "ATIENDE": return m.isAtiende();
+            case "SIN_CONFIGURAR": return !m.isConfigurado();
+            case "PAUSA": return m.isConfigurado() && !m.isActivo();
+            default: return false;
+        }
+    }
+
+    default java.util.Map<Integer, java.math.BigDecimal> preciosConsulta() {
+        return java.util.Map.of();
+    }
+
     /** Médicos que reciben citas (configurados, activos y con horario); idEspecialidad null = todos. */
     List<MedicoDTO> listarQueAtienden(Integer idEspecialidad);
 

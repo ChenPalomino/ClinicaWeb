@@ -12,6 +12,21 @@
         });
     });
 
+    // ---------- Agenda: ← → cambian de día/semana/mes y H vuelve a hoy (Nielsen #7, aceleradores) ----------
+    var atajos = {};
+    document.querySelectorAll("[data-atajo]").forEach(function (a) { atajos[a.dataset.atajo] = a; });
+    if (atajos.anterior || atajos.siguiente) {
+        document.addEventListener("keydown", function (e) {
+            if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.defaultPrevented) return;
+            var t = e.target;
+            if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
+            if (document.querySelector(".modal.show")) return;
+            var destino = e.key === "ArrowLeft" ? atajos.anterior : e.key === "ArrowRight" ? atajos.siguiente
+                        : (e.key === "h" || e.key === "H") ? atajos.hoy : null;
+            if (destino) { e.preventDefault(); destino.click(); }
+        });
+    }
+
     function texto(id, valor) {
         var el = document.getElementById(id);
         if (el) el.textContent = valor || "";

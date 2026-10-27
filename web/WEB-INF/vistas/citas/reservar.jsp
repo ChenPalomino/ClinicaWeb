@@ -32,6 +32,9 @@
     LocalDate ultimoDia = (LocalDate) request.getAttribute("ultimoDia");
     int horas = (Integer) request.getAttribute("horasCancelacion");
     String q = request.getParameter("q") == null ? "" : request.getParameter("q").trim();
+    @SuppressWarnings("unchecked") Map<Integer, PrecioConsultaDTO> precios = (Map<Integer, PrecioConsultaDTO>) request.getAttribute("precios");
+    if (precios == null) precios = Map.of();
+    PrecioConsultaDTO precioSel = espSel == null ? null : precios.getOrDefault(espSel, PrecioConsultaDTO.SIN_PRECIO);
 
     boolean pasoPacienteListo = modoPaciente || reprogramar || paciente != null;
     String nombreEsp = "";
@@ -143,8 +146,10 @@
         <% for (OpcionDTO e : especialidades) { boolean activo = espSel != null && espSel == e.getId(); %>
             <a class="opcion-btn <%= activo ? "activo" : "" %>" href="<%= base %>&esp=<%= e.getId() %>" <%= activo ? "aria-current=\"true\"" : "" %>>
                 <i class="fas fa-stethoscope"></i>
+                <% PrecioConsultaDTO pc = precios.getOrDefault(e.getId(), PrecioConsultaDTO.SIN_PRECIO); %>
                 <span><strong><%= EscapeHtml.texto(e.getNombre()) %></strong>
-                    <small class="d-block text-muted"><%= e.getExtra() %> <%= "1".equals(e.getExtra()) ? "médico" : "médicos" %></small></span>
+                    <small class="d-block text-muted"><%= e.getExtra() %> <%= "1".equals(e.getExtra()) ? "médico" : "médicos" %></small>
+                    <span class="precio-opcion"><% if (pc.isDefinido()) { %>S/ <%= PrecioConsultaDTO.soles(pc.getAPagar()) %><% if (pc.isConCobertura()) { %> <s class="text-muted font-weight-normal">S/ <%= PrecioConsultaDTO.soles(pc.getPrecioLista()) %></s><% } %><% } else { %><span class="text-muted font-weight-normal">Precio en caja</span><% } %></span></span>
             </a>
         <% } %>
         </div>
@@ -160,6 +165,23 @@
         <h3 class="card-title mr-auto"><span class="badge badge-primary mr-2"><%= reprogramar || modoPaciente ? 2 : 3 %></span>Elige el día y la hora<%= nombreEsp.isEmpty() ? "" : " · " + EscapeHtml.texto(nombreEsp) %></h3>
     </div>
     <div class="card-body">
+        <% if (precioSel != null) { %>
+        <div class="precio-consulta mb-3" role="note">
+            <i class="fas fa-tag" aria-hidden="true"></i>
+            <div>
+            <% if (precioSel.isDefinido()) { %>
+                <span class="text-muted">Precio de la consulta<%= reprogramar ? "" : (modoPaciente ? "" : " para este paciente") %>:</span>
+                <strong class="h5 mb-0 ml-1">S/ <%= PrecioConsultaDTO.soles(precioSel.getAPagar()) %></strong>
+                <% if (precioSel.isConCobertura()) { %>
+                <span class="small text-muted ml-1">Precio normal S/ <%= PrecioConsultaDTO.soles(precioSel.getPrecioLista()) %> · <%= EscapeHtml.texto(precioSel.getDetalleCobertura()) %></span>
+                <% } %>
+                <div class="small text-muted">Incluye IGV. Se paga en caja el día de la consulta<%= modoPaciente ? ", con efectivo, tarjeta o billetera digital" : "" %>.</div>
+            <% } else { %>
+                <span class="text-muted">El precio de esta consulta te lo indicarán en caja.</span>
+            <% } %>
+            </div>
+        </div>
+        <% } %>
         <% if (medicos != null && medicos.size() > 1) { %>
         <div class="mb-3">
             <span class="small text-muted d-block mb-1">Médico</span>
@@ -286,6 +308,12 @@
                     <dt class="col-4">Hora</dt><dd class="col-8" id="resHora"></dd>
                     <dt class="col-4">Médico</dt><dd class="col-8" id="resMedico"></dd>
                     <dt class="col-4">Lugar</dt><dd class="col-8" id="resLugar"></dd>
+                    <% if (precioSel != null) { %>
+                    <dt class="col-4">Precio</dt>
+                    <dd class="col-8"><% if (precioSel.isDefinido()) { %>S/ <%= PrecioConsultaDTO.soles(precioSel.getAPagar()) %>
+                        <small class="d-block text-muted font-weight-normal"><%= precioSel.isConCobertura() ? EscapeHtml.texto(precioSel.getDetalleCobertura()) + " · " : "" %>se paga en caja el día de la consulta</small>
+                        <% } else { %><span class="font-weight-normal text-muted">Te lo indicarán en caja</span><% } %></dd>
+                    <% } %>
                     <% if (reprogramar) { %>
                     <dt class="col-4 text-muted">Antes</dt><dd class="col-8 text-muted font-weight-normal"><s><%= FechaTexto.relativaCompleta(mover.getFecha(), hoy) %> · <%= FechaTexto.hora(mover.getHoraInicio()) %></s></dd>
                     <% } %>

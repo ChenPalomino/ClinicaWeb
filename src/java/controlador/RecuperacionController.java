@@ -43,78 +43,16 @@ public class RecuperacionController extends HttpServlet {
 
         try {
             switch (accion == null ? "" : accion) {
-
                 case "solicitar":
-                case "reenviar": {
-                    String identificador = "reenviar".equals(accion)
-                            ? (String) session.getAttribute(SESION_IDENTIFICADOR)
-                            : limpiar(request.getParameter("identificador"));
-                    if (identificador == null || identificador.isEmpty() || identificador.length() > 100) {
-                        response.sendRedirect(jsp + "recuperar.jsp?error=vacio");
-                        return;
-                    }
-                    session.setAttribute(SESION_IDENTIFICADOR, identificador);
-                    switch (servicio.solicitarCodigo(identificador)) {
-                        case ESPERAR:
-                            response.sendRedirect(jsp + "verificar-codigo.jsp?aviso=esperar");
-                            break;
-                        case ERROR_ENVIO:
-                            response.sendRedirect(jsp + "recuperar.jsp?error=envio");
-                            break;
-                        default:
-                            response.sendRedirect(jsp + "verificar-codigo.jsp?aviso="
-                                    + ("reenviar".equals(accion) ? "reenviado" : "enviado"));
-                    }
+                case "reenviar":
+                    solicitar(request, response, servicio, "reenviar".equals(accion));
                     return;
-                }
-
-                case "verificar": {
-                    String identificador = (String) session.getAttribute(SESION_IDENTIFICADOR);
-                    if (identificador == null) {
-                        response.sendRedirect(jsp + "recuperar.jsp?error=sesion");
-                        return;
-                    }
-                    ResultadoVerificacion r = servicio.verificarCodigo(identificador, request.getParameter("codigo"));
-                    switch (r.getEstado()) {
-                        case VALIDO:
-                            session.removeAttribute(SESION_IDENTIFICADOR);
-                            session.setAttribute(SESION_ID_VERIFICADO, r.getIdUsuario());
-                            session.setAttribute(SESION_VERIFICADO_EN, System.currentTimeMillis());
-                            response.sendRedirect(jsp + "nueva-contrasena.jsp");
-                            break;
-                        case INCORRECTO:
-                            response.sendRedirect(jsp + "verificar-codigo.jsp?error=incorrecto&restantes="
-                                    + r.getIntentosRestantes());
-                            break;
-                        case SIN_INTENTOS:
-                            response.sendRedirect(jsp + "verificar-codigo.jsp?error=intentos");
-                            break;
-                        default:
-                            response.sendRedirect(jsp + "verificar-codigo.jsp?error=expirado");
-                    }
+                case "verificar":
+                    verificar(request, response, servicio);
                     return;
-                }
-
-                case "cambiar": {
-                    Integer idUsuario = idVerificadoVigente(session);
-                    if (idUsuario == null) {
-                        response.sendRedirect(jsp + "recuperar.jsp?error=sesion");
-                        return;
-                    }
-                    Map<String, String> errores = servicio.cambiarContrasena(idUsuario,
-                            request.getParameter("password"), request.getParameter("confirmarPassword"),
-                            UrlAplicacion.base(request));
-                    if (errores.isEmpty()) {
-                        session.removeAttribute(SESION_ID_VERIFICADO);
-                        session.removeAttribute(SESION_VERIFICADO_EN);
-                        response.sendRedirect(jsp + "login.jsp?recuperacion=ok");
-                    } else {
-                        request.setAttribute("errores", errores);
-                        request.getRequestDispatcher("/jsp/nueva-contrasena.jsp").forward(request, response);
-                    }
+                case "cambiar":
+                    cambiar(request, response, servicio);
                     return;
-                }
-
                 default:
                     response.sendRedirect(jsp + "recuperar.jsp");
             }
@@ -122,6 +60,78 @@ public class RecuperacionController extends HttpServlet {
             System.err.println("RecuperacionController: " + e.getMessage());
             response.sendRedirect(jsp + "recuperar.jsp?error=sistema");
         }
+    }
+
+    private static void solicitar(HttpServletRequest request, HttpServletResponse response, RecuperacionService servicio,
+                                  boolean reenviar) throws IOException {
+        String jsp = request.getContextPath() + "/jsp/";
+        HttpSession session = request.getSession(true);
+        String identificador = reenviar ? (String) session.getAttribute(SESION_IDENTIFICADOR)
+                                        : limpiar(request.getParameter("identificador"));
+        if (identificador == null || identificador.isEmpty() || identificador.length() > 100) {
+            response.sendRedirect(jsp + "recuperar.jsp?error=vacio");
+            return;
+        }
+        session.setAttribute(SESION_IDENTIFICADOR, identificador);
+        switch (servicio.solicitarCodigo(identificador)) {
+            case ESPERAR:
+                response.sendRedirect(jsp + "verificar-codigo.jsp?aviso=esperar");
+                break;
+            case ERROR_ENVIO:
+                response.sendRedirect(jsp + "recuperar.jsp?error=envio");
+                break;
+            default:
+                response.sendRedirect(jsp + "verificar-codigo.jsp?aviso=" + (reenviar ? "reenviado" : "enviado"));
+        }
+    }
+
+    private static void verificar(HttpServletRequest request, HttpServletResponse response, RecuperacionService servicio)
+            throws IOException {
+        String jsp = request.getContextPath() + "/jsp/";
+        HttpSession session = request.getSession(true);
+        String identificador = (String) session.getAttribute(SESION_IDENTIFICADOR);
+        if (identificador == null) {
+            response.sendRedirect(jsp + "recuperar.jsp?error=sesion");
+            return;
+        }
+        ResultadoVerificacion r = servicio.verificarCodigo(identificador, request.getParameter("codigo"));
+        switch (r.getEstado()) {
+            case VALIDO:
+                session.removeAttribute(SESION_IDENTIFICADOR);
+                session.setAttribute(SESION_ID_VERIFICADO, r.getIdUsuario());
+                session.setAttribute(SESION_VERIFICADO_EN, System.currentTimeMillis());
+                response.sendRedirect(jsp + "nueva-contrasena.jsp");
+                break;
+            case INCORRECTO:
+                response.sendRedirect(jsp + "verificar-codigo.jsp?error=incorrecto&restantes=" + r.getIntentosRestantes());
+                break;
+            case SIN_INTENTOS:
+                response.sendRedirect(jsp + "verificar-codigo.jsp?error=intentos");
+                break;
+            default:
+                response.sendRedirect(jsp + "verificar-codigo.jsp?error=expirado");
+        }
+    }
+
+    private static void cambiar(HttpServletRequest request, HttpServletResponse response, RecuperacionService servicio)
+            throws ServletException, IOException {
+        String jsp = request.getContextPath() + "/jsp/";
+        HttpSession session = request.getSession(true);
+        Integer idUsuario = idVerificadoVigente(session);
+        if (idUsuario == null) {
+            response.sendRedirect(jsp + "recuperar.jsp?error=sesion");
+            return;
+        }
+        Map<String, String> errores = servicio.cambiarContrasena(idUsuario,
+                request.getParameter("password"), request.getParameter("confirmarPassword"), UrlAplicacion.base(request));
+        if (errores.isEmpty()) {
+            session.removeAttribute(SESION_ID_VERIFICADO);
+            session.removeAttribute(SESION_VERIFICADO_EN);
+            response.sendRedirect(jsp + "login.jsp?recuperacion=ok");
+            return;
+        }
+        request.setAttribute("errores", errores);
+        request.getRequestDispatcher("/jsp/nueva-contrasena.jsp").forward(request, response);
     }
 
     /** Enlace "No fui yo" que llega por correo. */

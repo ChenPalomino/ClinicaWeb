@@ -60,35 +60,40 @@ public class AutenticacionController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/panel");
 
         } catch (AutenticacionException e) {
-            switch (e.getMotivo()) {
-                case DATOS_INCOMPLETOS:
-                    response.sendRedirect(login + "&error=vacio");
-                    break;
-                case NO_EXISTE:
-                    response.sendRedirect(login + "&error=noexiste");
-                    break;
-                case CREDENCIALES_INVALIDAS:
-                    response.sendRedirect(login + "&error=credenciales&intentos=" + e.getIntentos());
-                    break;
-                case BLOQUEADO:
-                    // "Se cierra la ventana": se elimina la sesión y se muestra la pantalla de bloqueo
-                    cerrarSesion(request);
-                    if (e.isRecienBloqueado()) {
-                        avisarBloqueoPorCorreo(e.getIdUsuario(), request);
-                    }
-                    response.sendRedirect(jsp + "bloqueado.jsp?min=" + e.getMinutosRestantes());
-                    break;
-                case BLOQUEADO_SEGURIDAD:
-                    cerrarSesion(request);
-                    response.sendRedirect(jsp + "bloqueado.jsp?motivo=seguridad");
-                    break;
-                default:
-                    response.sendRedirect(login + "&error=sistema");
-            }
+            responderFallo(request, response, e, login);
         } catch (RuntimeException e) {
             // Falla técnica (por ejemplo, la base de datos no responde)
             System.err.println("AutenticacionController: " + e.getMessage());
             response.sendRedirect(login + "&error=sistema");
+        }
+    }
+
+    private void responderFallo(HttpServletRequest request, HttpServletResponse response, AutenticacionException e, String login)
+            throws IOException {
+        String jsp = request.getContextPath() + "/jsp/";
+        switch (e.getMotivo()) {
+            case DATOS_INCOMPLETOS:
+                response.sendRedirect(login + "&error=vacio");
+                break;
+            case NO_EXISTE:
+                response.sendRedirect(login + "&error=noexiste");
+                break;
+            case CREDENCIALES_INVALIDAS:
+                response.sendRedirect(login + "&error=credenciales&intentos=" + e.getIntentos());
+                break;
+            case BLOQUEADO:
+                cerrarSesion(request);
+                if (e.isRecienBloqueado()) {
+                    avisarBloqueoPorCorreo(e.getIdUsuario(), request);
+                }
+                response.sendRedirect(jsp + "bloqueado.jsp?min=" + e.getMinutosRestantes());
+                break;
+            case BLOQUEADO_SEGURIDAD:
+                cerrarSesion(request);
+                response.sendRedirect(jsp + "bloqueado.jsp?motivo=seguridad");
+                break;
+            default:
+                response.sendRedirect(login + "&error=sistema");
         }
     }
 

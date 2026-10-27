@@ -34,7 +34,7 @@ public final class MensajeCita {
         String cuando = FechaTexto.largaTitulo(c.getFecha()) + " a las " + FechaTexto.hora(c.getHoraInicio());
         String clinicaNombre = clinica.getNombreComercial().isEmpty() ? "Clínica Modelo San Martín" : clinica.getNombreComercial();
         String nombre = EscapeHtml.texto(c.getNombrePaciente().split(" ")[0]);
-        String ficha = ficha(c, cuando, clinica);
+        String ficha = ficha(c, cuando, clinica, tipo != TipoEvento.CITA_CANCELADA);
         String portal = urlPortal == null || urlPortal.isBlank() ? ""
                 : "<p><a href=\"" + EscapeHtml.texto(urlPortal) + "\">Ver mis citas en el portal</a></p>";
         switch (tipo) {
@@ -45,6 +45,7 @@ public final class MensajeCita {
                         + "<p style=\"color:#64748b;\">Si no puedes asistir, cancélala o cámbiala desde el portal hasta "
                         + horasCancelacion + " horas antes, así otro paciente puede usar el turno.</p>" + portal,
                         clinicaNombre + ": cita " + c.getCodigo() + " reservada " + corto(c) + " con " + c.getEspecialidad()
+                        + (c.getPrecioConsulta().isDefinido() ? " (S/ " + modelo.dto.PrecioConsultaDTO.soles(c.getPrecioConsulta().getAPagar()) + ")" : "")
                         + ". Llega 15 min antes con tu DNI.");
             case CITA_REPROGRAMADA:
                 return new MensajeCita("Tu cita cambió de fecha: " + cuando, "Tu cita fue reprogramada",
@@ -67,7 +68,7 @@ public final class MensajeCita {
         return FechaTexto.dmy(c.getFecha()) + " " + FechaTexto.horaIso(c.getHoraInicio());
     }
 
-    private static String ficha(CitaDTO c, String cuando, ParametroClinicaDTO clinica) {
+    private static String ficha(CitaDTO c, String cuando, ParametroClinicaDTO clinica, boolean conPrecio) {
         return "<table style=\"border-collapse:collapse;margin:12px 0;font-size:15px;\">"
                 + fila("Cuándo", EscapeHtml.texto(cuando))
                 + fila("Especialidad", EscapeHtml.texto(c.getEspecialidad()))
@@ -75,7 +76,21 @@ public final class MensajeCita {
                 + fila("Lugar", EscapeHtml.texto(c.getConsultorio())
                        + (clinica.getDireccion().isEmpty() ? "" : " · " + EscapeHtml.texto(clinica.getDireccion())))
                 + fila("Código", EscapeHtml.texto(c.getCodigo()))
+                + (conPrecio ? fila("Precio", precio(c)) : "")
                 + "</table>";
+    }
+
+    private static String precio(CitaDTO c) {
+        modelo.dto.PrecioConsultaDTO p = c.getPrecioConsulta();
+        if (!p.isDefinido()) {
+            return "Te lo indicarán en caja";
+        }
+        String detalle = p.isConCobertura()
+                ? "<br><span style=\"color:#64748b;font-weight:normal;\">Precio normal S/ " + modelo.dto.PrecioConsultaDTO.soles(p.getPrecioLista())
+                  + " · " + EscapeHtml.texto(p.getDetalleCobertura()) + "</span>"
+                : "";
+        return "S/ " + modelo.dto.PrecioConsultaDTO.soles(p.getAPagar()) + detalle
+                + "<br><span style=\"color:#64748b;font-weight:normal;\">Incluye IGV. Se paga en caja el día de la consulta.</span>";
     }
 
     private static String fila(String etiqueta, String valor) {

@@ -108,6 +108,19 @@ public class CitaService {
 
     public List<MedicoDTO> medicos(Integer idEspecialidad) { return medicos.listarQueAtienden(idEspecialidad); }
 
+    public Map<Integer, modelo.dto.PrecioConsultaDTO> preciosConsulta(Integer idPaciente) {
+        modelo.dto.CoberturaDTO cobertura = null;
+        CobranzaService caja = idPaciente == null ? null : cobranza.get();
+        if (caja != null) {
+            cobertura = caja.coberturaDelPaciente(idPaciente).orElse(null);
+        }
+        Map<Integer, modelo.dto.PrecioConsultaDTO> precios = new java.util.HashMap<>();
+        for (Map.Entry<Integer, java.math.BigDecimal> e : medicos.preciosConsulta().entrySet()) {
+            precios.put(e.getKey(), modelo.cobranza.CotizadorConsulta.cotizar(e.getValue(), cobertura));
+        }
+        return precios;
+    }
+
     public Optional<MedicoDTO> medicoDeUsuario(int idUsuario) { return medicos.buscarPorUsuario(idUsuario); }
 
     /** Médicos considerados: los de la especialidad, o solo uno si se eligió. */
@@ -223,46 +236,28 @@ public class CitaService {
 
     public Resultado reservar(int idPaciente, int idMedico, LocalDate fecha, LocalTime hora, String motivo, Usuario quien) {
         boolean portal = quien.getRolId() == Rol.PACIENTE;
-        if (!portal && !esPersonal(quien)) {
-            return Resultado.fallo("Tu perfil no puede reservar citas.");
-        }
-        if (portal && !citas.idPacienteDeUsuario(quien.getIdUsuario()).map(id -> id == idPaciente).orElse(false)) {
-            return Resultado.fallo("Solo puedes reservar citas para ti.");
-        }
-        Optional<PacienteDTO> paciente = pacientes.buscarPorId(idPaciente);
-        if (paciente.isEmpty() || !paciente.get().isActivo()) {
-            return Resultado.fallo("Elige un paciente activo.");
-        }
         String m = motivo == null ? "" : motivo.trim();
-        if (m.length() > MOTIVO_MAXIMO) {
-            return Resultado.fallo("El motivo de la consulta puede tener hasta " + MOTIVO_MAXIMO + " caracteres.");
-        }
+        String error = validarSolicitante(portal, quien, idPaciente);
+        Optional<PacienteDTO> paciente = pacientes.buscarPorId(idPaciente);
         Optional<MedicoDTO> medico = medicos.buscarPorId(idMedico);
-        if (medico.isEmpty()) {
-            return Resultado.fallo("Elige un médico de la lista.");
+        if (error == null) {
+            error = validarDatosReserva(paciente, medico, m);
         }
-        String error = validarTurno(medico.get(), fecha, hora, idPaciente, 0);
-        if (error == null && portal && pendientesDelPaciente(idPaciente, 0) >= ReglasCita.MAXIMO_PENDIENTES_PORTAL) {
-            error = "Ya tienes " + ReglasCita.MAXIMO_PENDIENTES_PORTAL + " citas pendientes. Para reservar otra, "
-                    + "espera a que pase alguna o cancela la que ya no necesites.";
+        if (error == null) {
+            error = validarTurno(medico.get(), fecha, hora, idPaciente, 0);
+        }
+        if (error == null && portal) {
+            error = validarLimitePortal(idPaciente);
         }
         if (error != null) {
             return Resultado.fallo(error);
         }
-        CitaDTO c = new CitaDTO();
-        c.setIdPaciente(idPaciente);
-        c.setIdMedico(idMedico);
-        c.setIdEspecialidad(medico.get().getIdEspecialidad());
-        c.setFecha(fecha);
-        c.setHoraInicio(hora);
-        c.setHoraFin(hora.plusMinutes(medico.get().getDuracionCita()));
-        c.setMotivo(m);
-        c.setCanal(portal ? CitaDTO.CANAL_PORTAL : CitaDTO.CANAL_RECEPCION);
+        CitaDTO c = nuevaCita(idPaciente, medico.get(), fecha, hora, m, portal);
         CitaRepository.NuevaCita nueva;
         try {
             nueva = citas.reservar(c, quien.getNombreUsuario());
         } catch (OperacionRechazadaException e) {
-            return Resultado.fallo(e.getMessage());     // alt del diagrama de secuencia: otro usuario lo tomó primero
+            return Resultado.fallo(e.getMessage());
         }
         EventoSubject.getInstancia().publicar(TipoEvento.CITA_RESERVADA, quien, nueva.idCita(),
                 nueva.codigo() + " · " + paciente.get().getNombreCompleto() + " · " + medico.get().getEspecialidad()
@@ -271,22 +266,55 @@ public class CitaService {
         return new Resultado(nueva.idCita(), nueva.codigo(), null);
     }
 
+    private String validarSolicitante(boolean portal, Usuario quien, int idPaciente) {
+        if (!portal && !esPersonal(quien)) {
+            return "Tu perfil no puede reservar citas.";
+        }
+        if (portal && !citas.idPacienteDeUsuario(quien.getIdUsuario()).map(id -> id == idPaciente).orElse(false)) {
+            return "Solo puedes reservar citas para ti.";
+        }
+        return null;
+    }
+
+    private static String validarDatosReserva(Optional<PacienteDTO> paciente, Optional<MedicoDTO> medico, String motivo) {
+        if (paciente.isEmpty() || !paciente.get().isActivo()) {
+            return "Elige un paciente activo.";
+        }
+        if (motivo.length() > MOTIVO_MAXIMO) {
+            return "El motivo de la consulta puede tener hasta " + MOTIVO_MAXIMO + " caracteres.";
+        }
+        return medico.isEmpty() ? "Elige un médico de la lista." : null;
+    }
+
+    private String validarLimitePortal(int idPaciente) {
+        if (pendientesDelPaciente(idPaciente, 0) < ReglasCita.MAXIMO_PENDIENTES_PORTAL) {
+            return null;
+        }
+        return "Ya tienes " + ReglasCita.MAXIMO_PENDIENTES_PORTAL + " citas pendientes. Para reservar otra, "
+                + "espera a que pase alguna o cancela la que ya no necesites.";
+    }
+
+    private static CitaDTO nuevaCita(int idPaciente, MedicoDTO medico, LocalDate fecha, LocalTime hora, String motivo, boolean portal) {
+        CitaDTO c = new CitaDTO();
+        c.setIdPaciente(idPaciente);
+        c.setIdMedico(medico.getIdMedico());
+        c.setIdEspecialidad(medico.getIdEspecialidad());
+        c.setFecha(fecha);
+        c.setHoraInicio(hora);
+        c.setHoraFin(hora.plusMinutes(medico.getDuracionCita()));
+        c.setMotivo(motivo);
+        c.setCanal(portal ? CitaDTO.CANAL_PORTAL : CitaDTO.CANAL_RECEPCION);
+        return c;
+    }
+
     /**
      * Validación común de reservar y reprogramar. idCitaExcluir = la cita que se está moviendo (o 0).
      * @return el problema en palabras del usuario, o null si el turno se puede tomar
      */
     String validarTurno(MedicoDTO medico, LocalDate fecha, LocalTime hora, int idPaciente, int idCitaExcluir) {
-        if (fecha == null || hora == null) {
-            return "Elige el día y la hora de la cita.";
-        }
-        if (fecha.isBefore(hoy())) {
-            return "Esa fecha ya pasó. Elige otro día.";
-        }
-        if (fecha.isAfter(ultimoDiaReserva())) {
-            return "Solo se puede reservar hasta el " + FechaTexto.dmy(ultimoDiaReserva()) + ".";
-        }
-        if (!medico.isAtiende()) {
-            return "Ese médico no está recibiendo citas por ahora.";
+        String error = validarFecha(medico, fecha, hora);
+        if (error != null) {
+            return error;
         }
         Optional<TurnoDTO> turno = CalculadoraTurnos.turnoDelHorario(medico, fecha, hora, ahora());
         if (turno.isEmpty()) {
@@ -296,12 +324,28 @@ public class CitaService {
         if (ocupados.contains(hora)) {
             return "Ese horario ya fue tomado. Elige otro, por favor.";
         }
+        return validarCruces(medico, fecha, hora, turno.get().getHoraFin(), idPaciente, idCitaExcluir);
+    }
+
+    private String validarFecha(MedicoDTO medico, LocalDate fecha, LocalTime hora) {
+        if (fecha == null || hora == null) {
+            return "Elige el día y la hora de la cita.";
+        }
+        if (fecha.isBefore(hoy())) {
+            return "Esa fecha ya pasó. Elige otro día.";
+        }
+        if (fecha.isAfter(ultimoDiaReserva())) {
+            return "Solo se puede reservar hasta el " + FechaTexto.dmy(ultimoDiaReserva()) + ".";
+        }
+        return medico.isAtiende() ? null : "Ese médico no está recibiendo citas por ahora.";
+    }
+
+    private String validarCruces(MedicoDTO medico, LocalDate fecha, LocalTime hora, LocalTime fin, int idPaciente, int idCitaExcluir) {
         for (CitaDTO otra : citas.activasDelPaciente(idPaciente, fecha)) {
             if (otra.getIdCita() == idCitaExcluir || !otra.getFecha().equals(fecha)) {
                 continue;
             }
-            boolean cruce = hora.isBefore(otra.getHoraFin()) && otra.getHoraInicio().isBefore(turno.get().getHoraFin());
-            if (cruce) {
+            if (hora.isBefore(otra.getHoraFin()) && otra.getHoraInicio().isBefore(fin)) {
                 return "El paciente ya tiene una cita ese día de " + FechaTexto.hora(otra.getHoraInicio()) + " a "
                         + FechaTexto.hora(otra.getHoraFin()) + " (" + otra.getEspecialidad() + "). Elige otra hora.";
             }
@@ -318,35 +362,34 @@ public class CitaService {
                 .filter(c -> c.getIdCita() != idCitaExcluir && c.getInicio().isAfter(ahora())).count();
     }
 
+    /** Cita que el usuario puede modificar (no la del médico ni la de otro paciente). */
+    private Optional<CitaDTO> citaModificable(int idCita, Usuario quien) {
+        return citas.buscarPorId(idCita).filter(c -> puedeVer(c, quien) && quien.getRolId() != Rol.MEDICO);
+    }
+
+    /** Regla de plazo del paciente común a reprogramar y cancelar. */
+    private String bloqueoPaciente(CitaDTO c, String porDefecto) {
+        if (ReglasCita.pacientePuedeCambiar(c, ahora(), horasCancelacion())) {
+            return null;
+        }
+        String motivo = ReglasCita.motivoBloqueoPaciente(c, ahora(), horasCancelacion());
+        return motivo != null ? motivo : porDefecto;
+    }
+
     // ===================== RF-06: reprogramar =====================
 
     /** @return null si se reprogramó, o el motivo por el que no */
     public String reprogramar(int idCita, int idMedico, LocalDate fecha, LocalTime hora, Usuario quien) {
-        Optional<CitaDTO> cita = citas.buscarPorId(idCita);
-        if (cita.isEmpty() || !puedeVer(cita.get(), quien) || quien.getRolId() == Rol.MEDICO) {
+        Optional<CitaDTO> cita = citaModificable(idCita, quien);
+        if (cita.isEmpty()) {
             return "La cita no existe o no puedes modificarla.";
         }
         CitaDTO c = cita.get();
-        if (quien.getRolId() == Rol.PACIENTE) {
-            if (!ReglasCita.pacientePuedeCambiar(c, ahora(), horasCancelacion())) {
-                String motivo = ReglasCita.motivoBloqueoPaciente(c, ahora(), horasCancelacion());
-                return motivo != null ? motivo : "Esta cita ya no se puede reprogramar.";
-            }
-            if (!ReglasCita.pacientePuedeReprogramar(c, ahora(), horasCancelacion())) {
-                return "Esta cita ya se reprogramó " + ReglasCita.MAXIMO_REPROGRAMACIONES_PACIENTE
-                        + " veces. Para cambiarla otra vez, llama a recepción.";
-            }
-        } else if (!ReglasCita.personalPuedeReprogramar(c, ahora())) {
-            return "Solo se reprograma una cita reservada que todavía no empieza.";
-        }
         Optional<MedicoDTO> medico = medicos.buscarPorId(idMedico);
-        if (medico.isEmpty() || medico.get().getIdEspecialidad() != c.getIdEspecialidad()) {
-            return "Elige un médico de " + c.getEspecialidad() + ".";
+        String error = permisoReprogramar(c, quien);
+        if (error == null) {
+            error = validarNuevoHorario(c, medico, idMedico, fecha, hora);
         }
-        if (idMedico == c.getIdMedico() && c.getFecha().equals(fecha) && c.getHoraInicio().equals(hora)) {
-            return "Ese es el mismo horario que ya tiene la cita. Elige otro.";
-        }
-        String error = validarTurno(medico.get(), fecha, hora, c.getIdPaciente(), idCita);
         if (error != null) {
             return error;
         }
@@ -367,26 +410,45 @@ public class CitaService {
         return null;
     }
 
+    private String permisoReprogramar(CitaDTO c, Usuario quien) {
+        if (quien.getRolId() != Rol.PACIENTE) {
+            return ReglasCita.personalPuedeReprogramar(c, ahora()) ? null
+                    : "Solo se reprograma una cita reservada que todavía no empieza.";
+        }
+        String bloqueo = bloqueoPaciente(c, "Esta cita ya no se puede reprogramar.");
+        if (bloqueo != null) {
+            return bloqueo;
+        }
+        return ReglasCita.pacientePuedeReprogramar(c, ahora(), horasCancelacion()) ? null
+                : "Esta cita ya se reprogramó " + ReglasCita.MAXIMO_REPROGRAMACIONES_PACIENTE
+                  + " veces. Para cambiarla otra vez, llama a recepción.";
+    }
+
+    private String validarNuevoHorario(CitaDTO c, Optional<MedicoDTO> medico, int idMedico, LocalDate fecha, LocalTime hora) {
+        if (medico.isEmpty() || medico.get().getIdEspecialidad() != c.getIdEspecialidad()) {
+            return "Elige un médico de " + c.getEspecialidad() + ".";
+        }
+        if (idMedico == c.getIdMedico() && c.getFecha().equals(fecha) && c.getHoraInicio().equals(hora)) {
+            return "Ese es el mismo horario que ya tiene la cita. Elige otro.";
+        }
+        return validarTurno(medico.get(), fecha, hora, c.getIdPaciente(), c.getIdCita());
+    }
+
     // ===================== RF-07: cancelar =====================
 
     public String cancelar(int idCita, String motivo, Usuario quien) {
-        Optional<CitaDTO> cita = citas.buscarPorId(idCita);
-        if (cita.isEmpty() || !puedeVer(cita.get(), quien) || quien.getRolId() == Rol.MEDICO) {
+        Optional<CitaDTO> cita = citaModificable(idCita, quien);
+        if (cita.isEmpty()) {
             return "La cita no existe o no puedes cancelarla.";
         }
         CitaDTO c = cita.get();
-        if (quien.getRolId() == Rol.PACIENTE) {
-            if (!ReglasCita.pacientePuedeCambiar(c, ahora(), horasCancelacion())) {
-                String m = ReglasCita.motivoBloqueoPaciente(c, ahora(), horasCancelacion());
-                return m != null ? m : "Esta cita ya no se puede cancelar.";
-            }
-        } else if (!ReglasCita.personalPuedeCancelar(c, hoy())) {
-            return c.isActiva() ? "Esa cita ya pasó: márcala como «No asistió» desde la agenda del médico."
-                                : "Esta cita ya está " + c.getEstadoLegible().toLowerCase() + ".";
-        }
         String m = motivo == null ? "" : motivo.trim();
-        if (m.length() < 5 || m.length() > MOTIVO_MAXIMO) {
-            return "Indica el motivo de la cancelación (de 5 a " + MOTIVO_MAXIMO + " caracteres).";
+        String error = permisoCancelar(c, quien);
+        if (error == null && (m.length() < 5 || m.length() > MOTIVO_MAXIMO)) {
+            error = "Indica el motivo de la cancelación (de 5 a " + MOTIVO_MAXIMO + " caracteres).";
+        }
+        if (error != null) {
+            return error;
         }
         if (!citas.cancelar(idCita, m, quien.getNombreUsuario())) {
             return "La cita cambió mientras la cancelabas. Revisa su estado.";
@@ -395,6 +457,17 @@ public class CitaService {
                 c.getCodigo() + " · " + c.getNombrePaciente() + " · " + FechaTexto.dmy(c.getFecha()) + " "
                 + FechaTexto.horaIso(c.getHoraInicio()) + " · Motivo: " + m);
         return null;
+    }
+
+    private String permisoCancelar(CitaDTO c, Usuario quien) {
+        if (quien.getRolId() == Rol.PACIENTE) {
+            return bloqueoPaciente(c, "Esta cita ya no se puede cancelar.");
+        }
+        if (ReglasCita.personalPuedeCancelar(c, hoy())) {
+            return null;
+        }
+        return c.isActiva() ? "Esa cita ya pasó: márcala como «No asistió» desde la agenda del médico."
+                            : "Esta cita ya está " + c.getEstadoLegible().toLowerCase() + ".";
     }
 
     // ===================== RF-08: confirmar asistencia (llegada) =====================
@@ -422,22 +495,18 @@ public class CitaService {
     // ===================== RF-10: registrar la atención =====================
 
     public String registrarAtencion(int idCita, boolean atendida, String nota, Usuario quien) {
-        Optional<CitaDTO> cita = citas.buscarPorId(idCita);
-        boolean suMedico = cita.isPresent() && quien.getRolId() == Rol.MEDICO && cita.get().getIdUsuarioMedico() == quien.getIdUsuario();
-        if (cita.isEmpty() || !(suMedico || quien.getRolId() == Rol.ADMINISTRADOR)) {
+        Optional<CitaDTO> cita = citas.buscarPorId(idCita).filter(c -> esDeSuAgenda(c, quien));
+        if (cita.isEmpty()) {
             return "La cita no existe o no es de tu agenda.";
         }
         CitaDTO c = cita.get();
-        if (atendida && !ReglasCita.puedeMarcarAtendida(c, hoy())) {
-            return c.isActiva() ? "Todavía no es el día de esta cita." : "Esta cita ya está " + c.getEstadoLegible().toLowerCase() + ".";
-        }
-        if (!atendida && !ReglasCita.puedeMarcarNoAsistio(c, ahora())) {
-            return c.isConfirmada() ? "El paciente ya llegó: márcala como atendida."
-                                    : "Solo se marca «No asistió» cuando ya pasó la hora de la cita.";
-        }
         String n = nota == null ? "" : nota.trim();
-        if (n.length() > NOTA_MAXIMA) {
-            return "La nota puede tener hasta " + NOTA_MAXIMA + " caracteres.";
+        String error = atendida ? permisoAtendida(c) : permisoNoAsistio(c);
+        if (error == null && n.length() > NOTA_MAXIMA) {
+            error = "La nota puede tener hasta " + NOTA_MAXIMA + " caracteres.";
+        }
+        if (error != null) {
+            return error;
         }
         String estado = atendida ? CitaDTO.ATENDIDA : CitaDTO.NO_ASISTIO;
         if (!citas.registrarAtencion(idCita, estado, n, quien.getNombreUsuario())) {
@@ -446,6 +515,26 @@ public class CitaService {
         EventoSubject.getInstancia().publicar(atendida ? TipoEvento.CITA_ATENDIDA : TipoEvento.CITA_NO_ASISTIO, quien, idCita,
                 c.getCodigo() + " · " + c.getNombrePaciente());
         return null;
+    }
+
+    private static boolean esDeSuAgenda(CitaDTO c, Usuario quien) {
+        boolean suMedico = quien.getRolId() == Rol.MEDICO && c.getIdUsuarioMedico() == quien.getIdUsuario();
+        return suMedico || quien.getRolId() == Rol.ADMINISTRADOR;
+    }
+
+    private String permisoAtendida(CitaDTO c) {
+        if (ReglasCita.puedeMarcarAtendida(c, hoy())) {
+            return null;
+        }
+        return c.isActiva() ? "Todavía no es el día de esta cita." : "Esta cita ya está " + c.getEstadoLegible().toLowerCase() + ".";
+    }
+
+    private String permisoNoAsistio(CitaDTO c) {
+        if (ReglasCita.puedeMarcarNoAsistio(c, ahora())) {
+            return null;
+        }
+        return c.isConfirmada() ? "El paciente ya llegó: márcala como atendida."
+                                : "Solo se marca «No asistió» cuando ya pasó la hora de la cita.";
     }
 
     // ===================== Cita -> caja (une PP-01 con PP-03) =====================
@@ -462,7 +551,22 @@ public class CitaService {
         if (cita.isEmpty()) {
             return new Cobro(0, "La cita no existe.", null);
         }
-        CitaDTO c = cita.get();
+        return abrirCuentaDeCita(cita.get(), quien);
+    }
+
+    public Cobro prepararPagoEnLinea(int idCita, Usuario paciente) {
+        Optional<CitaDTO> cita = citas.buscarPorId(idCita);
+        if (cita.isEmpty() || paciente == null || paciente.getRolId() != Rol.PACIENTE || !puedeVer(cita.get(), paciente)) {
+            return new Cobro(0, "La cita no existe.", null);
+        }
+        if (!cita.get().isActiva()) {
+            return new Cobro(0, "Solo se pagan por adelantado las citas reservadas.", null);
+        }
+        return abrirCuentaDeCita(cita.get(), paciente);
+    }
+
+    private Cobro abrirCuentaDeCita(CitaDTO c, Usuario quien) {
+        int idCita = c.getIdCita();
         if (c.isTieneCuenta()) {
             return new Cobro(c.getIdCuentaAtencion(), null, null);
         }

@@ -30,10 +30,10 @@ import java.util.Optional;
 public class PagoRepositoryImpl implements PagoRepository {
 
     private static final String INSERT_PAGO =
-          "INSERT INTO tt_pago (id_cuenta_atencion, id_metodo_pago, monto, monto_recibido, vuelto, referencia, "
-        + "                     estado_pago, motivo_rechazo, id_usuario_cajero, usuario_registro) "
+          "INSERT INTO tt_pago (id_cuenta_atencion, id_metodo_pago, monto, estado_pago, motivo_rechazo, "
+        + "                     id_usuario_cajero, usuario_registro) "
         + "VALUES (?, (SELECT id_metodo_pago FROM tm_metodo_pago WHERE codigo = ? AND estado = 'Activo'), "
-        + "        ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_pago";
+        + "        ?, ?, ?, ?, ?) RETURNING id_pago";
 
     private Connection conexion() throws SQLException {
         return ConexionBDSingleton.getInstancia().getConexion();
@@ -54,29 +54,82 @@ public class PagoRepositoryImpl implements PagoRepository {
         }
     }
 
-    private static int insertarPago(Connection cn, PagoDTO p) throws SQLException {
+    @Override
+    public List<OpcionDTO> billeterasActivas() {
+        List<OpcionDTO> lista = new ArrayList<>();
+        try (PreparedStatement stmt = conexion().prepareStatement(
+                "SELECT id_billetera, nombre, NULL FROM tm_billetera WHERE estado = 'Activo' ORDER BY orden, nombre");
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                lista.add(new OpcionDTO(rs.getInt(1), rs.getString(2), null));
+            }
+            return lista;
+        } catch (SQLException e) {
+            throw new RepositorioException("Error al leer las billeteras", e);
+        }
+    }
+
+    static int insertarPago(Connection cn, PagoDTO p) throws SQLException {
+        int idPago;
         try (PreparedStatement stmt = cn.prepareStatement(INSERT_PAGO)) {
             stmt.setInt(1, p.getIdCuentaAtencion());
             stmt.setString(2, p.getCodigoMetodo());
             stmt.setBigDecimal(3, p.getMonto());
-            stmt.setBigDecimal(4, p.getMontoRecibido());
-            stmt.setBigDecimal(5, p.getVuelto());
-            RepositorioUtil.textoONulo(stmt, 6, p.getReferencia());
-            stmt.setString(7, p.getEstadoPago());
-            RepositorioUtil.textoONulo(stmt, 8, p.getMotivoRechazo());
-            stmt.setInt(9, p.getIdUsuarioCajero());
-            stmt.setString(10, p.getNombreCajero());
+            stmt.setString(4, p.getEstadoPago());
+            RepositorioUtil.textoONulo(stmt, 5, p.getMotivoRechazo());
+            stmt.setInt(6, p.getIdUsuarioCajero());
+            stmt.setString(7, p.getNombreCajero());
             try (ResultSet rs = stmt.executeQuery()) {
                 rs.next();
-                return rs.getInt(1);
+                idPago = rs.getInt(1);
             }
         }
+        if ("EFECTIVO".equals(p.getCodigoMetodo()) && p.getMontoRecibido() != null) {
+            try (PreparedStatement stmt = cn.prepareStatement(
+                    "INSERT INTO tt_pago_efectivo (id_pago, monto_recibido, usuario_registro) VALUES (?, ?, ?)")) {
+                stmt.setInt(1, idPago);
+                stmt.setBigDecimal(2, p.getMontoRecibido());
+                stmt.setString(3, p.getNombreCajero());
+                stmt.executeUpdate();
+            }
+        } else if ("TARJETA".equals(p.getCodigoMetodo())) {
+            try (PreparedStatement stmt = cn.prepareStatement(
+                    "INSERT INTO tt_pago_tarjeta (id_pago, tipo_tarjeta, ultimos_digitos, codigo_autorizacion, usuario_registro) "
+                  + "VALUES (?, ?, ?, ?, ?)")) {
+                stmt.setInt(1, idPago);
+                stmt.setString(2, p.getTipoTarjeta());
+                stmt.setString(3, p.getUltimosDigitos());
+                stmt.setString(4, p.getCodigoAutorizacion());
+                stmt.setString(5, p.getNombreCajero());
+                stmt.executeUpdate();
+            }
+        } else if ("BILLETERA".equals(p.getCodigoMetodo())) {
+            try (PreparedStatement stmt = cn.prepareStatement(
+                    "INSERT INTO tt_pago_billetera (id_pago, id_billetera, numero_operacion, celular, nombre_pagador, usuario_registro) "
+                  + "VALUES (?, ?, ?, ?, ?, ?)")) {
+                stmt.setInt(1, idPago);
+                stmt.setInt(2, p.getIdBilletera());
+                RepositorioUtil.textoONulo(stmt, 3, p.getNumeroOperacion());
+                RepositorioUtil.textoONulo(stmt, 4, p.getCelular());
+                RepositorioUtil.textoONulo(stmt, 5, p.getNombrePagador());
+                stmt.setString(6, p.getNombreCajero());
+                stmt.executeUpdate();
+            }
+        }
+        return idPago;
     }
 
     @Override
     public int registrarRechazo(PagoDTO pago) {
-        try {
-            return insertarPago(conexion(), pago);
+        try (Connection cn = ConexionBDSingleton.getInstancia().abrirConexionTransaccional()) {
+            try {
+                int id = insertarPago(cn, pago);
+                cn.commit();
+                return id;
+            } catch (SQLException | RuntimeException e) {
+                cn.rollback();
+                throw e;
+            }
         } catch (SQLException e) {
             throw new RepositorioException("Error al registrar el pago rechazado", e);
         }
@@ -93,8 +146,12 @@ public class PagoRepositoryImpl implements PagoRepository {
                 }
                 descontarStock(cn, detalles);
                 int idPago = insertarPago(cn, pago);
-                c.setNumero(siguienteNumero(cn, c.getSerie()));
-                int idComprobante = insertarComprobante(cn, pago, idPago, c);
+                if (pago.getIdReportePago() != null) {
+                    marcarReporteVerificado(cn, pago, idPago);
+                }
+                int[] serieYNumero = siguienteNumero(cn, c.getSerie());
+                c.setNumero(serieYNumero[1]);
+                int idComprobante = insertarComprobante(cn, pago, idPago, serieYNumero[0], c);
                 try (PreparedStatement stmt = cn.prepareStatement(
                         "UPDATE tt_cuenta_atencion SET estado_cuenta = 'PAGADA', fecha_pago = LOCALTIMESTAMP "
                       + "WHERE id_cuenta_atencion = ?")) {
@@ -115,7 +172,8 @@ public class PagoRepositoryImpl implements PagoRepository {
     /** Bloquea la cabecera y comprueba que siga pendiente y con el total que vio el cajero. */
     private static void bloquearCuentaPendiente(Connection cn, int idCuenta, BigDecimal totalEsperado) throws SQLException {
         try (PreparedStatement stmt = cn.prepareStatement(
-                "SELECT estado_cuenta, total FROM tt_cuenta_atencion WHERE id_cuenta_atencion = ? FOR UPDATE")) {
+                "SELECT estado_cuenta, op_gravada + op_exonerada + igv FROM tt_cuenta_atencion "
+              + "WHERE id_cuenta_atencion = ? FOR UPDATE")) {
             stmt.setInt(1, idCuenta);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
@@ -137,6 +195,21 @@ public class PagoRepositoryImpl implements PagoRepository {
         }
     }
 
+    private static void marcarReporteVerificado(Connection cn, PagoDTO pago, int idPago) throws SQLException {
+        try (PreparedStatement stmt = cn.prepareStatement(
+                "UPDATE tt_reporte_pago SET estado_reporte = 'VERIFICADO', id_usuario_revisa = ?, id_pago = ?, "
+              + "       fecha_revision = LOCALTIMESTAMP "
+              + "WHERE id_reporte_pago = ? AND id_cuenta_atencion = ? AND estado_reporte = 'PENDIENTE'")) {
+            stmt.setInt(1, pago.getIdUsuarioCajero());
+            stmt.setInt(2, idPago);
+            stmt.setInt(3, pago.getIdReportePago());
+            stmt.setInt(4, pago.getIdCuentaAtencion());
+            if (stmt.executeUpdate() == 0) {
+                throw new OperacionRechazadaException("Otro cajero ya revisó este pago informado. Actualiza la lista.");
+            }
+        }
+    }
+
     private static boolean cajaCerrada(Connection cn, int idUsuario, LocalDate fecha) throws SQLException {
         try (PreparedStatement stmt = cn.prepareStatement(
                 "SELECT 1 FROM tt_cierre_caja WHERE id_usuario_cajero = ? AND fecha_caja = ?")) {
@@ -151,8 +224,7 @@ public class PagoRepositoryImpl implements PagoRepository {
     /** Descuenta el stock de cada producto; si alguno no alcanza, se cancela todo. */
     private static void descontarStock(Connection cn, List<DetalleCuentaDTO> detalles) throws SQLException {
         try (PreparedStatement stmt = cn.prepareStatement(
-                "UPDATE tt_producto_servicio SET stock = stock - ? "
-              + "WHERE id_producto_servicio = ? AND tipo = 'PRODUCTO' AND stock >= ?")) {
+                "UPDATE tt_producto SET stock = stock - ? WHERE id_producto_servicio = ? AND stock >= ?")) {
             for (DetalleCuentaDTO d : detalles) {
                 if (!d.isProducto()) {
                     continue;
@@ -169,39 +241,33 @@ public class PagoRepositoryImpl implements PagoRepository {
     }
 
     /** El UPDATE bloquea la fila de la serie: dos cobros simultáneos nunca reciben el mismo número. */
-    private static int siguienteNumero(Connection cn, String serie) throws SQLException {
+    private static int[] siguienteNumero(Connection cn, String serie) throws SQLException {
         try (PreparedStatement stmt = cn.prepareStatement(
                 "UPDATE tm_serie_comprobante SET ultimo_numero = ultimo_numero + 1 "
-              + "WHERE serie = ? AND estado = 'Activo' RETURNING ultimo_numero")) {
+              + "WHERE serie = ? AND estado = 'Activo' RETURNING id_serie_comprobante, ultimo_numero")) {
             stmt.setString(1, serie);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
                     throw new OperacionRechazadaException("La serie " + serie + " no está activa. Avisa al administrador.");
                 }
-                return rs.getInt(1);
+                return new int[]{rs.getInt(1), rs.getInt(2)};
             }
         }
     }
 
-    private static int insertarComprobante(Connection cn, PagoDTO pago, int idPago, Comprobante c) throws SQLException {
-        String sql = "INSERT INTO tt_comprobante (id_cuenta_atencion, id_pago, tipo_comprobante, serie, numero, tipo_documento, "
-                   + "       numero_documento, nombre_cliente, direccion_cliente, op_gravada, op_exonerada, igv, total, "
-                   + "       usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_comprobante";
+    private static int insertarComprobante(Connection cn, PagoDTO pago, int idPago, int idSerie, Comprobante c) throws SQLException {
+        String sql = "INSERT INTO tt_comprobante (id_pago, id_serie_comprobante, numero, tipo_documento, numero_documento, "
+                   + "       nombre_cliente, direccion_cliente, usuario_registro) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                   + "RETURNING id_comprobante";
         try (PreparedStatement stmt = cn.prepareStatement(sql)) {
-            stmt.setInt(1, pago.getIdCuentaAtencion());
-            stmt.setInt(2, idPago);
-            stmt.setString(3, c.getTipo());
-            stmt.setString(4, c.getSerie());
-            stmt.setInt(5, c.getNumero());
-            stmt.setString(6, c.getTipoDocumento());
-            RepositorioUtil.textoONulo(stmt, 7, c.getNumeroDocumento());
-            stmt.setString(8, c.getNombreCliente());
-            RepositorioUtil.textoONulo(stmt, 9, c.getDireccionCliente());
-            stmt.setBigDecimal(10, c.getOpGravada());
-            stmt.setBigDecimal(11, c.getOpExonerada());
-            stmt.setBigDecimal(12, c.getIgv());
-            stmt.setBigDecimal(13, c.getTotal());
-            stmt.setString(14, pago.getNombreCajero());
+            stmt.setInt(1, idPago);
+            stmt.setInt(2, idSerie);
+            stmt.setInt(3, c.getNumero());
+            stmt.setString(4, c.getTipoDocumento());
+            RepositorioUtil.textoONulo(stmt, 5, c.getNumeroDocumento());
+            stmt.setString(6, c.getNombreCliente());
+            RepositorioUtil.textoONulo(stmt, 7, c.getDireccionCliente());
+            stmt.setString(8, pago.getNombreCajero());
             try (ResultSet rs = stmt.executeQuery()) {
                 rs.next();
                 return rs.getInt(1);
@@ -263,9 +329,9 @@ public class PagoRepositoryImpl implements PagoRepository {
             }
         }
         try (PreparedStatement stmt = cn.prepareStatement(
-                "UPDATE tt_producto_servicio ps SET stock = ps.stock + dc.cantidad "
-              + "FROM tt_detalle_cuenta dc WHERE dc.id_cuenta_atencion = ? AND dc.tipo = 'PRODUCTO' "
-              + "AND ps.id_producto_servicio = dc.id_producto_servicio")) {
+                "UPDATE tt_producto p SET stock = p.stock + dc.cantidad "
+              + "FROM tt_detalle_cuenta dc WHERE dc.id_cuenta_atencion = ? "
+              + "AND p.id_producto_servicio = dc.id_producto_servicio")) {
             stmt.setInt(1, idCuenta);
             stmt.executeUpdate();
         }
@@ -275,7 +341,8 @@ public class PagoRepositoryImpl implements PagoRepository {
             stmt.executeUpdate();
         }
         try (PreparedStatement stmt = cn.prepareStatement(
-                "UPDATE tt_comprobante SET estado_comprobante = 'ANULADO' WHERE id_cuenta_atencion = ?")) {
+                "UPDATE tt_comprobante SET estado_comprobante = 'ANULADO' "
+              + "WHERE id_pago IN (SELECT id_pago FROM tt_pago WHERE id_cuenta_atencion = ?)")) {
             stmt.setInt(1, idCuenta);
             stmt.executeUpdate();
         }
@@ -288,14 +355,13 @@ public class PagoRepositoryImpl implements PagoRepository {
                    + "       cp.op_exonerada, cp.igv, cp.total, cp.estado_comprobante, cp.fecha_creacion, "
                    + "       ca.monto_aseguradora, ca.monto_descuento, d.nombres || ' ' || d.apellidos AS paciente, "
                    + "       p.numero_historia, cb.nombre AS cobertura, COALESCE(d.id_usuario, 0) AS id_usuario_paciente, "
-                   + "       mp.nombre AS metodo, pg.referencia, pg.monto_recibido, pg.vuelto, u.nombre_usuario AS cajero "
-                   + "FROM tt_comprobante cp "
+                   + "       pg.metodo, pg.referencia, pg.monto_recibido, pg.vuelto, u.nombre_usuario AS cajero "
+                   + "FROM vw_comprobante cp "
                    + "JOIN tt_cuenta_atencion ca ON ca.id_cuenta_atencion = cp.id_cuenta_atencion "
                    + "JOIN tt_paciente p ON p.id_paciente = ca.id_paciente "
                    + "JOIN tt_datos_personales d ON d.id_datos_personales = p.id_datos_personales "
                    + "JOIN tm_cobertura cb ON cb.id_cobertura = ca.id_cobertura "
-                   + "JOIN tt_pago pg ON pg.id_pago = cp.id_pago "
-                   + "JOIN tm_metodo_pago mp ON mp.id_metodo_pago = pg.id_metodo_pago "
+                   + "JOIN vw_pago pg ON pg.id_pago = cp.id_pago "
                    + "JOIN tt_usuario u ON u.id_usuario = pg.id_usuario_cajero "
                    + "WHERE cp.id_comprobante = ?";
         try {
@@ -342,17 +408,19 @@ public class PagoRepositoryImpl implements PagoRepository {
 
     @Override
     public List<PagoDTO> pagosDelCajero(int idUsuarioCajero, LocalDate fecha) {
-        String sql = "SELECT pg.id_pago, pg.id_cuenta_atencion, pg.id_metodo_pago, mp.codigo, mp.nombre AS metodo, pg.monto, "
+        String sql = "SELECT pg.id_pago, pg.id_cuenta_atencion, pg.id_metodo_pago, pg.codigo_metodo AS codigo, pg.metodo, pg.monto, "
                    + "       pg.monto_recibido, pg.vuelto, pg.referencia, pg.estado_pago, pg.motivo_rechazo, "
+                   + "       pg.tipo_tarjeta, pg.ultimos_digitos, pg.codigo_autorizacion, pg.id_billetera, pg.billetera, "
+                   + "       pg.numero_operacion, pg.celular, pg.nombre_pagador, "
                    + "       pg.id_usuario_cajero, u.nombre_usuario AS cajero, pg.fecha_creacion, ca.numero_cuenta, "
-                   + "       d.nombres || ' ' || d.apellidos AS paciente, cp.serie, cp.numero "
-                   + "FROM tt_pago pg "
-                   + "JOIN tm_metodo_pago mp ON mp.id_metodo_pago = pg.id_metodo_pago "
+                   + "       d.nombres || ' ' || d.apellidos AS paciente, s.serie, cp.numero "
+                   + "FROM vw_pago pg "
                    + "JOIN tt_usuario u ON u.id_usuario = pg.id_usuario_cajero "
                    + "JOIN tt_cuenta_atencion ca ON ca.id_cuenta_atencion = pg.id_cuenta_atencion "
                    + "JOIN tt_paciente p ON p.id_paciente = ca.id_paciente "
                    + "JOIN tt_datos_personales d ON d.id_datos_personales = p.id_datos_personales "
                    + "LEFT JOIN tt_comprobante cp ON cp.id_pago = pg.id_pago "
+                   + "LEFT JOIN tm_serie_comprobante s ON s.id_serie_comprobante = cp.id_serie_comprobante "
                    + "WHERE pg.id_usuario_cajero = ? AND pg.fecha_creacion >= ? AND pg.fecha_creacion < ? "
                    + "ORDER BY pg.fecha_creacion";
         List<PagoDTO> lista = new ArrayList<>();

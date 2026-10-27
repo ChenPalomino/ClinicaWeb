@@ -74,66 +74,19 @@ public class UsuarioService {
     public Map<String, String> guardar(UsuarioDTO u, String password, String confirmacion, Usuario admin) {
         normalizar(u);
         Map<String, String> errores = new LinkedHashMap<>();
-
-        // --- formato ---
-        if (!nombreValido(u.getNombres())) errores.put("nombres", "Escribe los nombres solo con letras (mínimo 2).");
-        if (!nombreValido(u.getApellidos())) errores.put("apellidos", "Escribe los apellidos solo con letras (mínimo 2).");
-        if (!DNI.matcher(u.getDni()).matches()) errores.put("dni", "El DNI debe tener exactamente 8 números.");
-        if (u.getCorreo().length() > 100 || !CORREO.matcher(u.getCorreo()).matches()) {
-            errores.put("correo", "Escribe un correo válido. Se usa para recuperar la contraseña.");
-        }
-        if (!u.getCelular().isEmpty() && !CELULAR.matcher(u.getCelular()).matches()) {
-            errores.put("celular", "El celular debe tener 9 números y empezar con 9 (o déjalo vacío).");
-        }
-        if (!NOMBRE_USUARIO.matcher(u.getNombreUsuario()).matches()) {
-            errores.put("nombreUsuario", "Entre 4 y 30 caracteres: letras, números, punto, guion o guion bajo. Sin espacios.");
-        }
-        if (listarRoles().stream().noneMatch(r -> r.getIdRol() == u.getIdRol())) {
-            errores.put("idRol", "Selecciona un rol válido.");
-        }
-        if (!"Activo".equals(u.getEstado()) && !"Inactivo".equals(u.getEstado())) {
-            errores.put("estado", "Selecciona un estado válido.");
-        }
-
-        // --- contraseña: obligatoria al crear, opcional al editar ---
         boolean cambiaPassword = u.isNuevo() || (password != null && !password.isEmpty());
+        validarPersona(u, errores);
+        validarCuenta(u, errores);
         if (cambiaPassword) {
-            String error = PoliticaPassword.validar(password);
-            if (error != null) {
-                errores.put("password", error);
-            } else if (!PoliticaPassword.coinciden(password, confirmacion)) {
-                errores.put("confirmarPassword", "Las contraseñas no coinciden.");
-            }
+            validarPassword(password, confirmacion, errores);
         }
-
-        // --- reglas de negocio: el administrador no puede quitarse acceso a sí mismo ---
-        if (!u.isNuevo() && u.getIdUsuario() == admin.getIdUsuario()) {
-            if (u.getIdRol() != Rol.ADMINISTRADOR) {
-                errores.put("idRol", "No puedes quitarte el rol de Administrador a ti mismo.");
-            }
-            if (!"Activo".equals(u.getEstado())) {
-                errores.put("estado", "No puedes desactivar tu propia cuenta.");
-            }
-        }
-
-        // --- duplicados (solo si el formato ya es correcto) ---
-        if (!errores.containsKey("nombreUsuario")
-                && usuarioRepository.existeNombreUsuarioExcepto(u.getNombreUsuario(), u.getIdUsuario())) {
-            errores.put("nombreUsuario", "Ese nombre de usuario ya está en uso.");
-        }
-        if (!errores.containsKey("dni") && usuarioRepository.existeDniExcepto(u.getDni(), u.getIdUsuario())) {
-            errores.put("dni", "Ya existe otra persona registrada con ese DNI.");
-        }
-        if (!errores.containsKey("correo") && usuarioRepository.existeCorreoExcepto(u.getCorreo(), u.getIdUsuario())) {
-            errores.put("correo", "Ese correo ya pertenece a otro usuario.");
-        }
+        validarQueNoSeBloquee(u, admin, errores);
+        validarDuplicados(u, errores);
         if (!errores.isEmpty()) {
             return errores;
         }
-
         u.setUsuarioRegistro(admin.getNombreUsuario());
         u.setContrasenaHash(cambiaPassword ? EncriptadorPassword.encriptar(password) : null);
-
         String rol = listarRoles().stream().filter(r -> r.getIdRol() == u.getIdRol()).map(Rol::getNombre).findFirst().orElse("");
         if (u.isNuevo()) {
             u.setIdUsuario(usuarioRepository.insertar(u));
@@ -146,15 +99,78 @@ public class UsuarioService {
             errores.put("general", "El usuario ya no existe. Actualiza la lista e inténtalo de nuevo.");
             return errores;
         }
-        StringBuilder cambios = new StringBuilder("@" + u.getNombreUsuario());
-        antes.ifPresent(a -> {
-            if (a.getIdRol() != u.getIdRol()) cambios.append(" · rol: ").append(a.getNombreRol()).append(" → ").append(rol);
-            if (!a.getEstado().equals(u.getEstado())) cambios.append(" · estado: ").append(a.getEstado()).append(" → ").append(u.getEstado());
-            if (!a.getDni().equals(u.getDni())) cambios.append(" · DNI: ").append(a.getDni()).append(" → ").append(u.getDni());
-        });
-        if (cambiaPassword) cambios.append(" · contraseña restablecida");
-        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_EDITADO, admin, u.getIdUsuario(), cambios.toString());
+        String cambios = "@" + u.getNombreUsuario() + antes.map(a -> cambios(a, u, rol)).orElse("")
+                + (cambiaPassword ? " · contraseña restablecida" : "");
+        EventoSubject.getInstancia().publicar(TipoEvento.USUARIO_EDITADO, admin, u.getIdUsuario(), cambios);
         return errores;
+    }
+
+    private static void validarPersona(UsuarioDTO u, Map<String, String> errores) {
+        if (!nombreValido(u.getNombres())) errores.put("nombres", "Escribe los nombres solo con letras (mínimo 2).");
+        if (!nombreValido(u.getApellidos())) errores.put("apellidos", "Escribe los apellidos solo con letras (mínimo 2).");
+        if (!DNI.matcher(u.getDni()).matches()) errores.put("dni", "El DNI debe tener exactamente 8 números.");
+        if (u.getCorreo().length() > 100 || !CORREO.matcher(u.getCorreo()).matches()) {
+            errores.put("correo", "Escribe un correo válido. Se usa para recuperar la contraseña.");
+        }
+        if (!u.getCelular().isEmpty() && !CELULAR.matcher(u.getCelular()).matches()) {
+            errores.put("celular", "El celular debe tener 9 números y empezar con 9 (o déjalo vacío).");
+        }
+    }
+
+    private void validarCuenta(UsuarioDTO u, Map<String, String> errores) {
+        if (!NOMBRE_USUARIO.matcher(u.getNombreUsuario()).matches()) {
+            errores.put("nombreUsuario", "Entre 4 y 30 caracteres: letras, números, punto, guion o guion bajo. Sin espacios.");
+        }
+        if (listarRoles().stream().noneMatch(r -> r.getIdRol() == u.getIdRol())) {
+            errores.put("idRol", "Selecciona un rol válido.");
+        }
+        if (!"Activo".equals(u.getEstado()) && !"Inactivo".equals(u.getEstado())) {
+            errores.put("estado", "Selecciona un estado válido.");
+        }
+    }
+
+    private static void validarPassword(String password, String confirmacion, Map<String, String> errores) {
+        String error = PoliticaPassword.validar(password);
+        if (error != null) {
+            errores.put("password", error);
+        } else if (!PoliticaPassword.coinciden(password, confirmacion)) {
+            errores.put("confirmarPassword", "Las contraseñas no coinciden.");
+        }
+    }
+
+    /** El administrador no puede quitarse acceso a sí mismo. */
+    private static void validarQueNoSeBloquee(UsuarioDTO u, Usuario admin, Map<String, String> errores) {
+        if (u.isNuevo() || u.getIdUsuario() != admin.getIdUsuario()) {
+            return;
+        }
+        if (u.getIdRol() != Rol.ADMINISTRADOR) {
+            errores.put("idRol", "No puedes quitarte el rol de Administrador a ti mismo.");
+        }
+        if (!"Activo".equals(u.getEstado())) {
+            errores.put("estado", "No puedes desactivar tu propia cuenta.");
+        }
+    }
+
+    /** Duplicados: solo si el formato ya es correcto. */
+    private void validarDuplicados(UsuarioDTO u, Map<String, String> errores) {
+        if (!errores.containsKey("nombreUsuario")
+                && usuarioRepository.existeNombreUsuarioExcepto(u.getNombreUsuario(), u.getIdUsuario())) {
+            errores.put("nombreUsuario", "Ese nombre de usuario ya está en uso.");
+        }
+        if (!errores.containsKey("dni") && usuarioRepository.existeDniExcepto(u.getDni(), u.getIdUsuario())) {
+            errores.put("dni", "Ya existe otra persona registrada con ese DNI.");
+        }
+        if (!errores.containsKey("correo") && usuarioRepository.existeCorreoExcepto(u.getCorreo(), u.getIdUsuario())) {
+            errores.put("correo", "Ese correo ya pertenece a otro usuario.");
+        }
+    }
+
+    private static String cambios(UsuarioDTO a, UsuarioDTO u, String rol) {
+        StringBuilder sb = new StringBuilder();
+        if (a.getIdRol() != u.getIdRol()) sb.append(" · rol: ").append(a.getNombreRol()).append(" → ").append(rol);
+        if (!a.getEstado().equals(u.getEstado())) sb.append(" · estado: ").append(a.getEstado()).append(" → ").append(u.getEstado());
+        if (!a.getDni().equals(u.getDni())) sb.append(" · DNI: ").append(a.getDni()).append(" → ").append(u.getDni());
+        return sb.toString();
     }
 
     // ------------------------------------------------------ acciones rápidas

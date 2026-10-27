@@ -27,6 +27,35 @@ public class PagoDTO {
     private String nombreCajero = "";
     private String comprobante;          // B001-00000001 (si se emitió)
     private Timestamp fechaCreacion;
+    private String tipoTarjeta;
+    private String ultimosDigitos;
+    private String codigoAutorizacion;
+    private Integer idBilletera;
+    private String nombreBilletera;
+    private String numeroOperacion;
+    private String celular;
+    private String nombrePagador;
+    private Integer idReportePago;
+
+    public Integer getIdReportePago() { return idReportePago; }
+    public void setIdReportePago(Integer v) { idReportePago = v; }
+
+    public String getTipoTarjeta() { return tipoTarjeta; }
+    public void setTipoTarjeta(String v) { tipoTarjeta = v; }
+    public String getUltimosDigitos() { return ultimosDigitos; }
+    public void setUltimosDigitos(String v) { ultimosDigitos = v; }
+    public String getCodigoAutorizacion() { return codigoAutorizacion; }
+    public void setCodigoAutorizacion(String v) { codigoAutorizacion = v; }
+    public Integer getIdBilletera() { return idBilletera; }
+    public void setIdBilletera(Integer v) { idBilletera = v; }
+    public String getNombreBilletera() { return nombreBilletera; }
+    public void setNombreBilletera(String v) { nombreBilletera = v; }
+    public String getNumeroOperacion() { return numeroOperacion; }
+    public void setNumeroOperacion(String v) { numeroOperacion = v; }
+    public String getCelular() { return celular; }
+    public void setCelular(String v) { celular = v; }
+    public String getNombrePagador() { return nombrePagador; }
+    public void setNombrePagador(String v) { nombrePagador = v; }
 
     public boolean isAprobado() { return APROBADO.equals(estadoPago); }
     public boolean isRechazado() { return RECHAZADO.equals(estadoPago); }

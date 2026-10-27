@@ -1,0 +1,11 @@
+<%@ page pageEncoding="UTF-8" %>
+<div class="estado-inicial">
+    <span class="estado-inicial-icono" aria-hidden="true"><i class="fas fa-filter"></i></span>
+    <p class="h6 mb-1">Elige qué quieres ver</p>
+    <p class="text-muted mb-3"><%= queLista %> aparecen cuando buscas o aplicas un filtro, así el sistema responde rápido aunque haya miles de registros.</p>
+    <div class="atajos" aria-label="Atajos de búsqueda">
+        <% for (String[] atajo : atajos) { %>
+        <a class="chip-estado" href="<%= urlLista %>?<%= atajo[1] %>"><i class="<%= atajo[2] %>" aria-hidden="true"></i><%= atajo[0] %></a>
+        <% } %>
+    </div>
+</div>

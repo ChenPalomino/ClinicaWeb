@@ -31,27 +31,23 @@ public final class MontoEnLetras {
 
     private static String enLetras(long n) {
         if (n >= 1_000_000) {
-            long millones = n / 1_000_000;
-            String texto = millones == 1 ? "UN MILLÓN" : apocopar(enLetras(millones)) + " MILLONES";
-            return n % 1_000_000 == 0 ? texto : texto + " " + enLetras(n % 1_000_000);
+            return conResto(n / 1_000_000 == 1 ? "UN MILLÓN" : apocopar(enLetras(n / 1_000_000)) + " MILLONES", n % 1_000_000);
         }
         if (n >= 1000) {
-            long miles = n / 1000;
-            String texto = miles == 1 ? "MIL" : apocopar(enLetras(miles)) + " MIL";
-            return n % 1000 == 0 ? texto : texto + " " + enLetras(n % 1000);
+            return conResto(n / 1000 == 1 ? "MIL" : apocopar(enLetras(n / 1000)) + " MIL", n % 1000);
         }
         if (n >= 100) {
-            if (n == 100) {
-                return "CIEN";
-            }
-            String texto = CENTENAS[(int) (n / 100)];
-            return n % 100 == 0 ? texto : texto + " " + enLetras(n % 100);
+            return n == 100 ? "CIEN" : conResto(CENTENAS[(int) (n / 100)], n % 100);
         }
         if (n < 30) {
             return UNIDADES[(int) n];
         }
         String texto = DECENAS[(int) (n / 10)];
         return n % 10 == 0 ? texto : texto + " Y " + UNIDADES[(int) (n % 10)];
+    }
+
+    private static String conResto(String texto, long resto) {
+        return resto == 0 ? texto : texto + " " + enLetras(resto);
     }
 
     /** "VEINTIUNO MIL" -> "VEINTIÚN MIL", "UNO MIL" no ocurre (se trata aparte). */
